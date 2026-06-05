@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Coach Renfo — Programme personnalisé</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0d0f; --surf:#141416; --surf2:#1c1c20; --bdr:#2a2a30;
+  --acc:#e8ff47; --acc2:#ff6b35; --warn:#ff9500; --txt:#f0f0f0;
+  --mut:#6b6b78; --grn:#4ade80; --red:#f87171; --purp:#a78bfa;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font-size:16px;line-height:1.5}
+body{padding-bottom:40px;min-height:100vh}
+h1,h2,h3,.bebas{font-family:'Bebas Neue',sans-serif;font-weight:400;letter-spacing:1px}
+.hidden{display:none!important}
+
+/* Header */
+.hdr{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:2px solid var(--acc);padding:14px 18px;display:flex;align-items:center;justify-content:space-between}
+.hdr .logo{font-family:'Bebas Neue';font-size:26px;letter-spacing:2px}
+.hdr .logo span{color:var(--acc)}
+.hdr .sub{font-size:11px;color:var(--mut);letter-spacing:1px;text-transform:uppercase}
+.hdr-actions{display:flex;gap:8px}
+.icon-btn{background:var(--surf2);border:1px solid var(--bdr);color:var(--txt);border-radius:8px;padding:7px 10px;font-size:13px;cursor:pointer}
+
+.wrap{max-width:640px;margin:0 auto;padding:18px}
+
+/* Cards */
+.card{background:var(--surf);border:1px solid var(--bdr);border-radius:10px;padding:18px;margin-bottom:14px}
+.card-title{font-family:'Bebas Neue';font-size:22px;letter-spacing:1px;margin-bottom:4px}
+.card-sub{font-size:13px;color:var(--mut);margin-bottom:14px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:10px;border:none;font-family:'DM Sans';font-weight:600;font-size:16px;cursor:pointer;transition:transform .08s ease,opacity .15s}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--acc);color:#0d0d0f}
+.btn-ghost{background:var(--surf2);color:var(--txt);border:1px solid var(--bdr)}
+.btn-danger{background:transparent;color:var(--red);border:1px solid var(--bdr)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn-row{display:flex;gap:10px}
+.btn-row .btn{flex:1}
+
+/* Profiles */
+.profile-list{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.profile-item{display:flex;align-items:center;gap:14px;background:var(--surf2);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px;cursor:pointer;transition:border-color .15s}
+.profile-item:active{border-color:var(--acc)}
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--acc);color:#0d0d0f;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:22px;flex-shrink:0}
+.profile-item .meta{flex:1;min-width:0}
+.profile-item .name{font-weight:600}
+.profile-item .desc{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.profile-item .arrow{color:var(--mut);font-size:18px}
+.empty-note{color:var(--mut);font-size:14px;text-align:center;padding:20px 0}
+
+/* Forms */
+.section{margin-bottom:22px}
+.section-h{font-family:'Bebas Neue';font-size:20px;letter-spacing:1px;color:var(--acc);margin-bottom:2px}
+.section-d{font-size:12px;color:var(--mut);margin-bottom:14px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+.field .hint{font-size:11px;color:var(--mut);font-weight:400}
+input[type=text],input[type=number],input[type=password],select,textarea{width:100%;background:var(--surf2);border:1px solid var(--bdr);border-radius:8px;color:var(--txt);font-family:'DM Sans';font-size:16px;padding:12px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc)}
+textarea{resize:vertical;min-height:64px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+/* Chips (multi-select) */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:9px 13px;border-radius:20px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt);font-size:14px;cursor:pointer;user-select:none}
+.chip.on{background:var(--acc);color:#0d0d0f;border-color:var(--acc);font-weight:600}
+.chip.warn.on{background:var(--warn);border-color:var(--warn);color:#0d0d0f}
+
+/* Segmented */
+.seg{display:flex;gap:6px;background:var(--surf2);border:1px solid var(--bdr);border-radius:10px;padding:4px}
+.seg button{flex:1;padding:9px;border:none;background:transparent;color:var(--mut);border-radius:7px;font-family:'DM Sans';font-weight:600;font-size:14px;cursor:pointer}
+.seg button.on{background:var(--acc);color:#0d0d0f}
+
+/* Program render */
+.prog-head{background:linear-gradient(135deg,var(--surf) 0%,var(--surf2) 100%);border:1px solid var(--bdr);border-radius:12px;padding:20px;margin-bottom:16px}
+.prog-head h2{font-size:30px;line-height:1;margin-bottom:8px}
+.prog-head .sum{font-size:14px;color:var(--txt)}
+.prog-head .ws{display:inline-block;margin-top:12px;font-size:12px;color:var(--acc);border:1px solid var(--bdr);border-radius:20px;padding:5px 12px;letter-spacing:.5px}
+.advice{background:var(--surf);border:1px solid var(--bdr);border-left:3px solid var(--acc);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+.advice ul{list-style:none}
+.advice li{font-size:13px;color:var(--txt);padding:4px 0 4px 16px;position:relative}
+.advice li:before{content:"›";position:absolute;left:0;color:var(--acc);font-weight:700}
+.safety{border-left-color:var(--acc2)}
+.safety li:before{color:var(--acc2)}
+
+.session{background:var(--surf);border:1px solid var(--bdr);border-radius:12px;margin-bottom:14px;overflow:hidden}
+.session-hd{padding:16px 18px;border-bottom:1px solid var(--bdr)}
+.session-hd .sn{font-family:'Bebas Neue';font-size:24px;letter-spacing:.5px}
+.session-hd .sf{font-size:12px;color:var(--mut);margin-top:2px}
+.session-hd .sd{display:inline-block;margin-top:8px;font-size:11px;background:var(--surf2);border:1px solid var(--bdr);border-radius:6px;padding:3px 9px;color:var(--acc)}
+.session-bd{padding:16px 18px}
+.subh{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--mut);margin:14px 0 8px}
+.subh:first-child{margin-top:0}
+.wu{font-size:13px;color:var(--txt)}
+.wu span{display:block;padding:3px 0 3px 14px;position:relative}
+.wu span:before{content:"•";position:absolute;left:2px;color:var(--mut)}
+
+.block{background:var(--surf2);border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:10px}
+.block-t{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--purp);margin-bottom:2px}
+.block-r{font-size:11px;color:var(--mut);margin-bottom:10px}
+.exo{padding:8px 0;border-top:1px solid var(--bdr)}
+.exo:first-of-type{border-top:none;padding-top:2px}
+.exo-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.exo-n{font-weight:600;font-size:15px}
+.exo-sr{font-family:'Bebas Neue';font-size:18px;color:var(--acc);white-space:nowrap;letter-spacing:.5px}
+.exo-note{font-size:12px;color:var(--mut);margin-top:3px}
+.finisher{background:var(--surf2);border:1px dashed var(--bdr);border-radius:10px;padding:12px;margin-top:6px}
+.finisher .ft{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--acc2);margin-bottom:4px}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:18px}
+.modal{background:var(--surf);border:1px solid var(--bdr);border-radius:14px;padding:22px;width:100%;max-width:380px}
+.modal h3{font-size:24px;margin-bottom:6px}
+.modal p{font-size:13px;color:var(--mut);margin-bottom:16px}
+
+/* Loader */
+.loader{text-align:center;padding:50px 20px}
+.spinner{width:44px;height:44px;border:4px solid var(--bdr);border-top-color:var(--acc);border-radius:50%;margin:0 auto 18px;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader .lt{font-family:'Bebas Neue';font-size:22px;letter-spacing:1px}
+.loader .ld{font-size:13px;color:var(--mut);margin-top:6px}
+
+.err{background:rgba(248,113,113,.1);border:1px solid var(--red);color:var(--red);border-radius:10px;padding:14px;font-size:13px;margin-bottom:14px}
+
+.fade{animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.foot{text-align:center;font-size:11px;color:var(--mut);padding:24px 0 0;letter-spacing:.5px}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <div class="logo">COACH <span>RENFO</span></div>
+    <div class="sub">Programme sur mesure</div>
+  </div>
+  <div class="hdr-actions" id="hdrActions"></div>
+</div>
+
+<!-- ============ VUE CONNEXION ============ -->
+<div id="view-login" class="wrap">
+  <div class="card fade">
+    <div class="card-title">Bienvenue</div>
+    <div class="card-sub">Choisis ton profil ou crées-en un nouveau.</div>
+    <div class="profile-list" id="profileList"></div>
+    <button class="btn btn-primary" onclick="openNewProfile()">+ Nouveau profil</button>
+  </div>
+  <div class="foot">Données enregistrées sur cet appareil uniquement · Aucune pub</div>
+</div>
+
+<!-- ============ VUE QUESTIONNAIRE ============ -->
+<div id="view-onboarding" class="wrap hidden">
+  <div class="card fade">
+    <div class="card-title" id="obTitle">Ton profil</div>
+    <div class="card-sub">Plus c'est précis, plus le programme sera adapté. Tout reste sur ton téléphone.</div>
+
+    <!-- Profil -->
+    <div class="section">
+      <div class="section-h">Profil</div>
+      <div class="field">
+        <label>Prénom</label>
+        <input type="text" id="f_prenom" placeholder="Ton prénom">
+      </div>
+      <div class="row3">
+        <div class="field"><label>Âge</label><input type="number" id="f_age" placeholder="35"></div>
+        <div class="field"><label>Poids (kg)</label><input type="number" id="f_poids" placeholder="62"></div>
+        <div class="field"><label>Taille (cm)</label><input type="number" id="f_taille" placeholder="168"></div>
+      </div>
+      <div class="field">
+        <label>Sexe <span class="hint">(adapte certains repères)</span></label>
+        <div class="seg" id="f_sexe">
+          <button data-v="femme" class="on">Femme</button>
+          <button data-v="homme">Homme</button>
+          <button data-v="autre">Autre</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Objectif & niveau -->
+    <div class="section">
+      <div class="section-h">Objectif & niveau</div>
+      <div class="field">
+        <label>Objectif principal</label>
+        <select id="f_objectif">
+          <option value="tonification">Tonification / raffermissement</option>
+          <option value="perte_gras">Perte de masse grasse</option>
+          <option value="force">Gagner en force</option>
+          <option value="sante_mobilite">Santé & mobilité</option>
+          <option value="prepa_event">Préparer un événement</option>
+        </select>
+      </div>
+      <div class="field hidden" id="eventField">
+        <label>Quel événement ? <span class="hint">(course, échéance...)</span></label>
+        <input type="text" id="f_event" placeholder="Ex: 10 km en octobre">
+      </div>
+      <div class="field">
+        <label>Niveau actuel</label>
+        <div class="seg" id="f_niveau">
+          <button data-v="debutante" class="on">Débutant·e</button>
+          <button data-v="intermediaire">Intermédiaire</button>
+          <button data-v="avancee">Avancé·e</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Expérience en renforcement</label>
+        <div class="seg" id="f_exp">
+          <button data-v="moins6" class="on">&lt; 6 mois</button>
+          <button data-v="6a24">6–24 mois</button>
+          <button data-v="plus2ans">2 ans +</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Disponibilité & matériel -->
+    <div class="section">
+      <div class="section-h">Disponibilité & matériel</div>
+      <div class="field">
+        <label>Séances par semaine</label>
+        <div class="seg" id="f_freq">
+          <button data-v="2">2</button>
+          <button data-v="3" class="on">3</button>
+          <button data-v="4">4</button>
+          <button data-v="5">5</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Durée par séance</label>
+        <div class="seg" id="f_duree">
+          <button data-v="30">30 min</button>
+          <button data-v="45" class="on">45 min</button>
+          <button data-v="60">60 min</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Matériel disponible <span class="hint">(plusieurs choix)</span></label>
+        <div class="chips" id="f_materiel">
+          <div class="chip on" data-v="poids_du_corps">Poids du corps</div>
+          <div class="chip" data-v="elastiques">Élastiques</div>
+          <div class="chip" data-v="halteres">Haltères</div>
+          <div class="chip" data-v="kettlebell">Kettlebell</div>
+          <div class="chip" data-v="barre">Barre + disques</div>
+          <div class="chip" data-v="banc">Banc</div>
+          <div class="chip" data-v="trx">TRX / barre traction</div>
+          <div class="chip" data-v="salle">Salle complète</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Lieu</label>
+        <div class="seg" id="f_lieu">
+          <button data-v="maison" class="on">Maison</button>
+          <button data-v="salle">Salle</button>
+          <button data-v="exterieur">Extérieur</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Santé & contraintes -->
+    <div class="section">
+      <div class="section-h">Santé & contraintes</div>
+      <div class="section-d">Important pour un programme sûr. Coche les zones sensibles ou douloureuses.</div>
+      <div class="field">
+        <label>Zones sensibles / blessures</label>
+        <div class="chips" id="f_blessures">
+          <div class="chip warn" data-v="dos">Dos</div>
+          <div class="chip warn" data-v="genou">Genou</div>
+          <div class="chip warn" data-v="epaule">Épaule</div>
+          <div class="chip warn" data-v="poignet">Poignet</div>
+          <div class="chip warn" data-v="cou">Cou / cervicales</div>
+          <div class="chip warn" data-v="cheville">Cheville</div>
+          <div class="chip warn" data-v="hanche">Hanche</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Autres contraintes <span class="hint">(douleur précise, opération...)</span></label>
+        <input type="text" id="f_contraintes_autre" placeholder="Ex: tendinite coude droit">
+      </div>
+      <div class="field" id="grossesseField">
+        <label>Grossesse / post-partum</label>
+        <select id="f_grossesse">
+          <option value="non">Non concernée</option>
+          <option value="enceinte">Enceinte</option>
+          <option value="pp_recent">Post-partum &lt; 3 mois</option>
+          <option value="pp_3a12">Post-partum 3–12 mois</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Préférences & récup -->
+    <div class="section">
+      <div class="section-h">Préférences & récupération</div>
+      <div class="field">
+        <label>Inclure du cardio léger ?</label>
+        <div class="seg" id="f_cardio">
+          <button data-v="oui" class="on">Oui</button>
+          <button data-v="non">Non</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Exercices à éviter <span class="hint">(détestés ou impossibles)</span></label>
+        <input type="text" id="f_eviter" placeholder="Ex: burpees, sauts">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Sommeil</label>
+          <select id="f_sommeil"><option value="bon">Bon</option><option value="moyen" selected>Moyen</option><option value="mauvais">Mauvais</option></select>
+        </div>
+        <div class="field">
+          <label>Stress</label>
+          <select id="f_stress"><option value="faible">Faible</option><option value="modere" selected>Modéré</option><option value="eleve">Élevé</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div id="obErr"></div>
+    <button class="btn btn-primary" onclick="submitOnboarding()">Générer mon programme</button>
+    <div style="height:10px"></div>
+    <button class="btn btn-ghost" onclick="cancelOnboarding()">Annuler</button>
+  </div>
+</div>
+
+<!-- ============ VUE PROGRAMME ============ -->
+<div id="view-program" class="wrap hidden">
+  <div id="programContent"></div>
+  <div class="btn-row" style="margin-top:8px">
+    <button class="btn btn-ghost" onclick="editProfile()">Modifier mon profil</button>
+    <button class="btn btn-primary" onclick="regenerate()">Régénérer</button>
+  </div>
+  <div class="foot">Généré par IA · adapte les charges à ton ressenti</div>
+</div>
+
+<!-- ============ MODALE NOUVEAU PROFIL ============ -->
+<div id="modalNew" class="modal-bg hidden">
+  <div class="modal">
+    <h3>Nouveau profil</h3>
+    <p>Le code protège l'accès à ce profil sur cet appareil partagé. Ce n'est pas un mot de passe sécurisé en ligne.</p>
+    <div class="field"><label>Prénom / nom du profil</label><input type="text" id="np_name" placeholder="Ex: Marie"></div>
+    <div class="field"><label>Code d'accès <span class="hint">(4 à 6 chiffres)</span></label><input type="password" id="np_code" inputmode="numeric" placeholder="••••" maxlength="6"></div>
+    <div id="npErr"></div>
+    <button class="btn btn-primary" onclick="createProfile()">Créer</button>
+    <div style="height:10px"></div>
+    <button class="btn btn-ghost" onclick="closeModal('modalNew')">Annuler</button>
+  </div>
+</div>
+
+<!-- ============ MODALE CODE ============ -->
+<div id="modalCode" class="modal-bg hidden">
+  <div class="modal">
+    <h3 id="mcTitle">Code d'accès</h3>
+    <p>Entre le code de ce profil.</p>
+    <div class="field"><input type="password" id="mc_code" inputmode="numeric" placeholder="••••" maxlength="6"></div>
+    <div id="mcErr"></div>
+    <button class="btn btn-primary" onclick="checkCode()">Entrer</button>
+    <div style="height:10px"></div>
+    <button class="btn btn-ghost" onclick="closeModal('modalCode')">Annuler</button>
+  </div>
+</div>
+
+<script>
+/* ======================================================================
+   COUCHE DONNÉES (abstraite — remplaçable par une API plus tard)
+   Pour migrer vers de vrais comptes : ne réécrire QUE ces fonctions.
+   ====================================================================== */
+var Store = {
+  _PK:'renfo:profiles',
+  listProfiles:function(){
+    try{return JSON.parse(localStorage.getItem(this._PK))||[]}catch(e){return[]}
+  },
+  _saveList:function(arr){localStorage.setItem(this._PK,JSON.stringify(arr))},
+  getProfileMeta:function(id){return this.listProfiles().find(function(p){return p.id===id})||null},
+  addProfileMeta:function(meta){var a=this.listProfiles();a.push(meta);this._saveList(a)},
+  loadProfile:function(id){
+    try{return JSON.parse(localStorage.getItem('renfo:profile:'+id))||{}}catch(e){return{}}
+  },
+  saveProfile:function(id,data){localStorage.setItem('renfo:profile:'+id,JSON.stringify(data))}
+};
+
+/* ======================================================================
+   AUTH LÉGÈRE (locale) — le code est haché, jamais stocké en clair.
+   Protection d'accès sur l'appareil, pas une sécurité réseau.
+   ====================================================================== */
+async function hashCode(code,salt){
+  var enc=new TextEncoder().encode(salt+':'+code);
+  var buf=await crypto.subtle.digest('SHA-256',enc);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+}
+function randSalt(){
+  var a=new Uint8Array(8);crypto.getRandomValues(a);
+  return Array.from(a).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+}
+
+/* ======================================================================
+   ÉTAT & NAVIGATION
+   ====================================================================== */
+var state={currentId:null,pendingId:null};
+
+function show(view){
+  ['view-login','view-onboarding','view-program'].forEach(function(v){
+    document.getElementById(v).classList.add('hidden');
+  });
+  var el=document.getElementById(view);
+  el.classList.remove('hidden');el.classList.remove('fade');void el.offsetWidth;el.classList.add('fade');
+  window.scrollTo(0,0);
+  renderHeaderActions(view);
+}
+function renderHeaderActions(view){
+  var a=document.getElementById('hdrActions');
+  if(view==='view-program'){
+    a.innerHTML='<button class="icon-btn" onclick="logout()">Changer de profil</button>';
+  }else{a.innerHTML='';}
+}
+
+/* ======================================================================
+   ÉCRAN CONNEXION
+   ====================================================================== */
+function renderProfiles(){
+  var list=document.getElementById('profileList');
+  var profiles=Store.listProfiles();
+  if(!profiles.length){
+    list.innerHTML='<div class="empty-note">Aucun profil pour l\'instant.</div>';return;
+  }
+  list.innerHTML=profiles.map(function(p){
+    var data=Store.loadProfile(p.id);
+    var desc=data.profile?(data.profile.objectif?objLabel(data.profile.objectif):'Profil créé'):'Questionnaire à remplir';
+    var initial=(p.name||'?').charAt(0).toUpperCase();
+    return '<div class="profile-item" onclick="askCode(\''+p.id+'\')">'+
+      '<div class="avatar">'+initial+'</div>'+
+      '<div class="meta"><div class="name">'+esc(p.name)+'</div><div class="desc">'+esc(desc)+'</div></div>'+
+      '<div class="arrow">›</div></div>';
+  }).join('');
+}
+
+function askCode(id){
+  state.pendingId=id;
+  var meta=Store.getProfileMeta(id);
+  document.getElementById('mcTitle').textContent='Bonjour '+meta.name;
+  document.getElementById('mc_code').value='';
+  document.getElementById('mcErr').innerHTML='';
+  openModal('modalCode');
+  setTimeout(function(){document.getElementById('mc_code').focus()},150);
+}
+async function checkCode(){
+  var meta=Store.getProfileMeta(state.pendingId);
+  var code=document.getElementById('mc_code').value.trim();
+  var h=await hashCode(code,meta.salt);
+  if(h===meta.codeHash){
+    state.currentId=state.pendingId;
+    closeModal('modalCode');
+    enterProfile();
+  }else{
+    document.getElementById('mcErr').innerHTML='<div class="err">Code incorrect.</div>';
+  }
+}
+
+function enterProfile(){
+  var data=Store.loadProfile(state.currentId);
+  if(data.program){renderProgram(data.program);show('view-program');}
+  else if(data.profile){show('view-onboarding');fillForm(data.profile);}
+  else{resetForm();show('view-onboarding');}
+}
+
+function logout(){state.currentId=null;renderProfiles();show('view-login');}
+
+/* ======================================================================
+   MODALE NOUVEAU PROFIL
+   ====================================================================== */
+function openNewProfile(){
+  document.getElementById('np_name').value='';
+  document.getElementById('np_code').value='';
+  document.getElementById('npErr').innerHTML='';
+  openModal('modalNew');
+}
+async function createProfile(){
+  var name=document.getElementById('np_name').value.trim();
+  var code=document.getElementById('np_code').value.trim();
+  if(!name){document.getElementById('npErr').innerHTML='<div class="err">Indique un prénom.</div>';return;}
+  if(!/^\d{4,6}$/.test(code)){document.getElementById('npErr').innerHTML='<div class="err">Le code doit faire 4 à 6 chiffres.</div>';return;}
+  var salt=randSalt();
+  var h=await hashCode(code,salt);
+  var id='p_'+Date.now().toString(36);
+  Store.addProfileMeta({id:id,name:name,salt:salt,codeHash:h});
+  Store.saveProfile(id,{});
+  state.currentId=id;
+  closeModal('modalNew');
+  resetForm();
+  document.getElementById('f_prenom').value=name;
+  show('view-onboarding');
+}
+
+/* ======================================================================
+   QUESTIONNAIRE — segmented & chips
+   ====================================================================== */
+document.querySelectorAll('.seg').forEach(function(seg){
+  seg.addEventListener('click',function(e){
+    var b=e.target.closest('button');if(!b)return;
+    seg.querySelectorAll('button').forEach(function(x){x.classList.remove('on')});
+    b.classList.add('on');
+    if(seg.id==='f_objectif'){}
+  });
+});
+document.getElementById('f_objectif').addEventListener('change',function(){
+  document.getElementById('eventField').classList.toggle('hidden',this.value!=='prepa_event');
+});
+document.querySelectorAll('.chips').forEach(function(c){
+  c.addEventListener('click',function(e){
+    var chip=e.target.closest('.chip');if(!chip)return;
+    chip.classList.toggle('on');
+  });
+});
+
+function segVal(id){var el=document.querySelector('#'+id+' button.on');return el?el.getAttribute('data-v'):null;}
+function chipsVal(id){return Array.from(document.querySelectorAll('#'+id+' .chip.on')).map(function(c){return c.getAttribute('data-v')});}
+function setSeg(id,v){document.querySelectorAll('#'+id+' button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-v')===String(v))});}
+function setChips(id,arr){arr=arr||[];document.querySelectorAll('#'+id+' .chip').forEach(function(c){c.classList.toggle('on',arr.indexOf(c.getAttribute('data-v'))!==-1)});}
+
+function collectProfile(){
+  return {
+    prenom:document.getElementById('f_prenom').value.trim(),
+    age:document.getElementById('f_age').value,
+    poids:document.getElementById('f_poids').value,
+    taille:document.getElementById('f_taille').value,
+    sexe:segVal('f_sexe'),
+    objectif:document.getElementById('f_objectif').value,
+    event:document.getElementById('f_event').value.trim(),
+    niveau:segVal('f_niveau'),
+    experience:segVal('f_exp'),
+    freq:segVal('f_freq'),
+    duree:segVal('f_duree'),
+    materiel:chipsVal('f_materiel'),
+    lieu:segVal('f_lieu'),
+    blessures:chipsVal('f_blessures'),
+    contraintesAutre:document.getElementById('f_contraintes_autre').value.trim(),
+    grossesse:document.getElementById('f_grossesse').value,
+    cardio:segVal('f_cardio'),
+    eviter:document.getElementById('f_eviter').value.trim(),
+    sommeil:document.getElementById('f_sommeil').value,
+    stress:document.getElementById('f_stress').value
+  };
+}
+function fillForm(p){
+  document.getElementById('f_prenom').value=p.prenom||'';
+  document.getElementById('f_age').value=p.age||'';
+  document.getElementById('f_poids').value=p.poids||'';
+  document.getElementById('f_taille').value=p.taille||'';
+  setSeg('f_sexe',p.sexe||'femme');
+  document.getElementById('f_objectif').value=p.objectif||'tonification';
+  document.getElementById('eventField').classList.toggle('hidden',p.objectif!=='prepa_event');
+  document.getElementById('f_event').value=p.event||'';
+  setSeg('f_niveau',p.niveau||'debutante');
+  setSeg('f_exp',p.experience||'moins6');
+  setSeg('f_freq',p.freq||'3');
+  setSeg('f_duree',p.duree||'45');
+  setChips('f_materiel',p.materiel||['poids_du_corps']);
+  setSeg('f_lieu',p.lieu||'maison');
+  setChips('f_blessures',p.blessures||[]);
+  document.getElementById('f_contraintes_autre').value=p.contraintesAutre||'';
+  document.getElementById('f_grossesse').value=p.grossesse||'non';
+  setSeg('f_cardio',p.cardio||'oui');
+  document.getElementById('f_eviter').value=p.eviter||'';
+  document.getElementById('f_sommeil').value=p.sommeil||'moyen';
+  document.getElementById('f_stress').value=p.stress||'modere';
+}
+function resetForm(){fillForm({});}
+
+function submitOnboarding(){
+  var p=collectProfile();
+  if(!p.prenom){return obError('Indique ton prénom.');}
+  if(!p.age||!p.poids){return obError('Renseigne au moins âge et poids.');}
+  if(!p.materiel.length){return obError('Sélectionne au moins un type de matériel (ou « poids du corps »).');}
+  var data=Store.loadProfile(state.currentId);
+  data.profile=p;
+  Store.saveProfile(state.currentId,data);
+  generate(p);
+}
+function obError(m){document.getElementById('obErr').innerHTML='<div class="err">'+m+'</div>';window.scrollTo(0,document.body.scrollHeight);}
+function cancelOnboarding(){
+  var data=Store.loadProfile(state.currentId);
+  if(data.program){renderProgram(data.program);show('view-program');}
+  else{logout();}
+}
+function editProfile(){
+  var data=Store.loadProfile(state.currentId);
+  fillForm(data.profile||{});
+  document.getElementById('obErr').innerHTML='';
+  show('view-onboarding');
+}
+
+/* ======================================================================
+   GÉNÉRATION IA (via proxy Netlify)
+   ====================================================================== */
+function buildPrompt(p){
+  var mat=p.materiel.map(function(m){return MAT_LABEL[m]||m}).join(', ');
+  var bless=p.blessures.length?p.blessures.map(function(b){return BLES_LABEL[b]||b}).join(', '):'aucune';
+  var lines=[];
+  lines.push("Tu es un coach expert en renforcement musculaire et préparation physique. Tu conçois un programme HEBDOMADAIRE personnalisé, progressif et SÛR.");
+  lines.push("");
+  lines.push("PROFIL :");
+  lines.push("- Prénom: "+p.prenom+" | "+p.age+" ans | "+p.poids+" kg"+(p.taille?(" | "+p.taille+" cm"):"")+" | sexe: "+p.sexe);
+  lines.push("- Objectif: "+objLabel(p.objectif)+(p.objectif==='prepa_event'&&p.event?(" ("+p.event+")"):""));
+  lines.push("- Niveau: "+p.niveau+" | expérience renfo: "+p.experience);
+  lines.push("- Disponibilité: "+p.freq+" séances/semaine, "+p.duree+" min par séance");
+  lines.push("- Matériel: "+mat+" | lieu: "+p.lieu);
+  lines.push("- Cardio léger souhaité: "+p.cardio);
+  lines.push("- Sommeil: "+p.sommeil+" | stress: "+p.stress);
+  lines.push("");
+  lines.push("CONTRAINTES SANTÉ (PRIORITÉ ABSOLUE) :");
+  lines.push("- Zones sensibles/blessures: "+bless+(p.contraintesAutre?(" | autre: "+p.contraintesAutre):""));
+  if(p.grossesse&&p.grossesse!=='non'){
+    lines.push("- Statut: "+GROSS_LABEL[p.grossesse]+". Programme PRUDENT: renforcer en douceur le plancher pelvien et le transverse, ÉVITER les exercices à fort impact, les sauts, les crunchs/relevés de buste classiques et tout ce qui crée une pression abdominale forte (risque diastasis). Recommander explicitement un avis kiné/médecin avant de reprendre, surtout en post-partum récent.");
+  }
+  lines.push("- Pour chaque zone sensible: choisir des exercices qui ne la sollicitent pas douloureusement, proposer des régressions, ne jamais charger une articulation douloureuse.");
+  if(p.eviter)lines.push("- Exercices à éviter (préférence): "+p.eviter);
+  lines.push("");
+  lines.push("RÈGLES DE CONCEPTION :");
+  lines.push("- Génère exactement "+p.freq+" séances pour la semaine, chacune tenant dans "+p.duree+" min échauffement inclus.");
+  lines.push("- Utilise UNIQUEMENT le matériel listé.");
+  lines.push("- Si le temps est court (30 min) ou la fréquence faible: privilégie le full-body et les supersets pour la densité. Plus de séances: tu peux répartir (haut/bas ou push/pull/jambes).");
+  lines.push("- Structure chaque séance en blocs de supersets quand pertinent. Types: 'superset agoniste/antagoniste' (repos 60s), 'superset complémentaire' (45s), 'non-compétitif' (45s). Finisher optionnel en série simple (30s).");
+  lines.push("- Indique séries × répétitions adaptées à l'objectif (force: 4-6 reps lourd; tonification/perte de gras: 10-15; santé: 12-15 contrôlé).");
+  lines.push("- Pour chaque exercice: une note brève (cue technique OU régression/progression selon le niveau).");
+  lines.push("- Donne des conseils de progression (comment augmenter la difficulté semaine après semaine) et de récupération.");
+  lines.push("");
+  lines.push("RÉPONDS EN JSON STRICT, SANS MARKDOWN, SANS TEXTE AUTOUR, structure exacte :");
+  lines.push('{"title":"nom motivant du programme","summary":"1-2 phrases qui résument l\'approche","weeklyStructure":"ex: 3 séances full-body","advice":["conseil progression","conseil récup"],"safetyNotes":["adaptation liée aux contraintes santé"],"sessions":[{"name":"Séance A — ...","focus":"groupe/objectif de la séance","durationMin":'+p.duree+',"warmup":["item 1","item 2"],"blocks":[{"type":"superset agoniste/antagoniste","rest":"60s","exercises":[{"name":"Exercice","sets":"3","reps":"10-12","note":"cue ou régression"}]}],"finisher":{"name":"nom ou null","detail":"description ou null"}}]}');
+  return lines.join("\n");
+}
+
+async function generate(p){
+  show('view-program');
+  document.getElementById('programContent').innerHTML=
+    '<div class="loader"><div class="spinner"></div><div class="lt">Construction du programme…</div><div class="ld">Ton coach analyse ton profil</div></div>';
+  document.getElementById('hdrActions').innerHTML='';
+  try{
+    var resp=await fetch('/.netlify/functions/generate',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:4000,messages:[{role:'user',content:buildPrompt(p)}]})
+    });
+    var raw=await resp.text();
+    var data;
+    try{data=JSON.parse(raw)}catch(e){throw new Error('Réponse invalide ('+resp.status+'): '+raw.slice(0,160));}
+    if(!resp.ok)throw new Error('HTTP '+resp.status+': '+((data.error&&data.error.message)||raw.slice(0,160)));
+    var txt=(data.content||[]).map(function(i){return i.text||''}).join('');
+    var clean=txt.trim();
+    var m=clean.match(/```(?:json)?\s*([\s\S]*?)```/);if(m)clean=m[1].trim();
+    var s=clean.indexOf('{'),e2=clean.lastIndexOf('}');
+    if(s!==-1&&e2!==-1)clean=clean.slice(s,e2+1);
+    var program=JSON.parse(clean);
+    var d=Store.loadProfile(state.currentId);
+    d.program=program;d.generatedAt=Date.now();
+    Store.saveProfile(state.currentId,d);
+    renderProgram(program);
+    renderHeaderActions('view-program');
+  }catch(err){
+    document.getElementById('programContent').innerHTML=
+      '<div class="err">Impossible de générer le programme.<br>'+esc(err.message)+'</div>'+
+      '<button class="btn btn-primary" onclick="regenerate()">Réessayer</button>'+
+      '<div style="height:10px"></div>'+
+      '<button class="btn btn-ghost" onclick="editProfile()">Revenir au profil</button>';
+    renderHeaderActions('view-program');
+  }
+}
+function regenerate(){
+  var p=Store.loadProfile(state.currentId).profile;
+  if(p)generate(p);else editProfile();
+}
+
+/* ======================================================================
+   RENDU PROGRAMME
+   ====================================================================== */
+function renderProgram(prog){
+  var h='';
+  h+='<div class="prog-head fade">';
+  h+='<h2>'+esc(prog.title||'Ton programme')+'</h2>';
+  if(prog.summary)h+='<div class="sum">'+esc(prog.summary)+'</div>';
+  if(prog.weeklyStructure)h+='<div class="ws">'+esc(prog.weeklyStructure)+'</div>';
+  h+='</div>';
+
+  if(prog.advice&&prog.advice.length){
+    h+='<div class="advice"><div class="subh" style="margin-top:0">Conseils</div><ul>'+
+      prog.advice.map(function(a){return '<li>'+esc(a)+'</li>'}).join('')+'</ul></div>';
+  }
+  if(prog.safetyNotes&&prog.safetyNotes.length){
+    h+='<div class="advice safety"><div class="subh" style="margin-top:0;color:var(--acc2)">À garder en tête</div><ul>'+
+      prog.safetyNotes.map(function(a){return '<li>'+esc(a)+'</li>'}).join('')+'</ul></div>';
+  }
+
+  (prog.sessions||[]).forEach(function(se){
+    h+='<div class="session">';
+    h+='<div class="session-hd"><div class="sn">'+esc(se.name||'Séance')+'</div>';
+    if(se.focus)h+='<div class="sf">'+esc(se.focus)+'</div>';
+    if(se.durationMin)h+='<div class="sd">'+esc(se.durationMin)+' min</div>';
+    h+='</div><div class="session-bd">';
+    if(se.warmup&&se.warmup.length){
+      h+='<div class="subh">Échauffement</div><div class="wu">'+se.warmup.map(function(w){return '<span>'+esc(w)+'</span>'}).join('')+'</div>';
+    }
+    if(se.blocks&&se.blocks.length){
+      h+='<div class="subh">Séance</div>';
+      se.blocks.forEach(function(bl){
+        h+='<div class="block">';
+        if(bl.type)h+='<div class="block-t">'+esc(bl.type)+'</div>';
+        if(bl.rest)h+='<div class="block-r">Repos : '+esc(bl.rest)+'</div>';
+        (bl.exercises||[]).forEach(function(ex){
+          var sr=(ex.sets||'')+(ex.sets&&ex.reps?' × ':'')+(ex.reps||'');
+          h+='<div class="exo"><div class="exo-top"><div class="exo-n">'+esc(ex.name||'')+'</div><div class="exo-sr">'+esc(sr)+'</div></div>';
+          if(ex.note)h+='<div class="exo-note">'+esc(ex.note)+'</div>';
+          h+='</div>';
+        });
+        h+='</div>';
+      });
+    }
+    if(se.finisher&&se.finisher.name&&se.finisher.name!=='null'){
+      h+='<div class="finisher"><div class="ft">Finisher</div><div class="exo-n">'+esc(se.finisher.name)+'</div>';
+      if(se.finisher.detail&&se.finisher.detail!=='null')h+='<div class="exo-note">'+esc(se.finisher.detail)+'</div>';
+      h+='</div>';
+    }
+    h+='</div></div>';
+  });
+  document.getElementById('programContent').innerHTML=h;
+  window.scrollTo(0,0);
+}
+
+/* ======================================================================
+   LABELS & UTILS
+   ====================================================================== */
+var MAT_LABEL={poids_du_corps:'poids du corps',elastiques:'élastiques',halteres:'haltères',kettlebell:'kettlebell',barre:'barre + disques',banc:'banc',trx:'TRX / barre de traction',salle:'salle complète'};
+var BLES_LABEL={dos:'dos',genou:'genou',epaule:'épaule',poignet:'poignet',cou:'cou/cervicales',cheville:'cheville',hanche:'hanche'};
+var GROSS_LABEL={enceinte:'enceinte',pp_recent:'post-partum < 3 mois',pp_3a12:'post-partum 3–12 mois'};
+function objLabel(o){return {tonification:'Tonification',perte_gras:'Perte de masse grasse',force:'Force',sante_mobilite:'Santé & mobilité',prepa_event:'Préparation événement'}[o]||o;}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function openModal(id){document.getElementById(id).classList.remove('hidden');}
+function closeModal(id){document.getElementById(id).classList.add('hidden');}
+
+/* ======================================================================
+   INIT
+   ====================================================================== */
+renderProfiles();
+show('view-login');
+document.getElementById('mc_code').addEventListener('keydown',function(e){if(e.key==='Enter')checkCode();});
+document.getElementById('np_code').addEventListener('keydown',function(e){if(e.key==='Enter')createProfile();});
+</script>
+</body>
+</html>
