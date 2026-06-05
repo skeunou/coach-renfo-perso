@@ -596,93 +596,127 @@ function editProfile(){
 /* ======================================================================
    GÉNÉRATION IA (via proxy Netlify)
    ====================================================================== */
-function buildPrompt(p){
+function profileSummary(p){
   var mat=p.materiel.map(function(m){return MAT_LABEL[m]||m}).join(', ');
   var bless=p.blessures.length?p.blessures.map(function(b){return BLES_LABEL[b]||b}).join(', '):'aucune';
-  var lines=[];
-  lines.push("Tu es un coach expert en renforcement musculaire et préparation physique. Tu conçois un programme HEBDOMADAIRE personnalisé, progressif et SÛR.");
-  lines.push("");
-  lines.push("PROFIL :");
-  lines.push("- Prénom: "+p.prenom+" | "+p.age+" ans | "+p.poids+" kg"+(p.taille?(" | "+p.taille+" cm"):"")+" | sexe: "+p.sexe);
-  lines.push("- Objectif: "+objLabel(p.objectif)+(p.objectif==='prepa_event'&&p.event?(" ("+p.event+")"):""));
-  lines.push("- Niveau: "+p.niveau+" | expérience renfo: "+p.experience);
-  lines.push("- Disponibilité: "+p.freq+" séances/semaine, "+p.duree+" min par séance");
-  lines.push("- Matériel: "+mat+" | lieu: "+p.lieu);
-  lines.push("- Cardio léger souhaité: "+p.cardio);
-  lines.push("- Sommeil: "+p.sommeil+" | stress: "+p.stress);
-  lines.push("");
-  lines.push("CONTRAINTES SANTÉ (PRIORITÉ ABSOLUE) :");
-  lines.push("- Zones sensibles/blessures: "+bless+(p.contraintesAutre?(" | autre: "+p.contraintesAutre):""));
+  var l=[];
+  l.push("Profil: "+p.prenom+", "+p.age+" ans, "+p.poids+" kg"+(p.taille?(", "+p.taille+" cm"):"")+", sexe "+p.sexe+".");
+  l.push("Objectif: "+objLabel(p.objectif)+(p.objectif==='prepa_event'&&p.event?(" ("+p.event+")"):"")+". Niveau: "+p.niveau+", expérience renfo: "+p.experience+".");
+  l.push("Dispo: "+p.freq+" séances/sem, "+p.duree+" min/séance. Matériel: "+mat+". Lieu: "+p.lieu+". Cardio léger: "+p.cardio+".");
+  l.push("Sommeil "+p.sommeil+", stress "+p.stress+".");
+  l.push("CONTRAINTES SANTÉ (PRIORITÉ ABSOLUE): zones sensibles/blessures: "+bless+(p.contraintesAutre?(" ; autre: "+p.contraintesAutre):"")+". Ne jamais charger une articulation douloureuse, toujours proposer une régression.");
   if(p.grossesse&&p.grossesse!=='non'){
-    lines.push("- Statut: "+GROSS_LABEL[p.grossesse]+". Programme PRUDENT: renforcer en douceur le plancher pelvien et le transverse, ÉVITER les exercices à fort impact, les sauts, les crunchs/relevés de buste classiques et tout ce qui crée une pression abdominale forte (risque diastasis). Recommander explicitement un avis kiné/médecin avant de reprendre, surtout en post-partum récent.");
+    l.push("Statut "+GROSS_LABEL[p.grossesse]+": programme PRUDENT, renforcer en douceur le plancher pelvien et le transverse, ÉVITER impact/sauts/crunchs/relevés de buste et toute forte pression abdominale (risque diastasis), recommander un avis kiné/médecin avant reprise.");
   }
-  lines.push("- Pour chaque zone sensible: choisir des exercices qui ne la sollicitent pas douloureusement, proposer des régressions, ne jamais charger une articulation douloureuse.");
-  if(p.eviter)lines.push("- Exercices à éviter (préférence): "+p.eviter);
-  lines.push("");
-  lines.push("RÈGLES DE CONCEPTION :");
-  lines.push("- Génère exactement "+p.freq+" séances pour la semaine, chacune tenant dans "+p.duree+" min échauffement inclus.");
-  lines.push("- Utilise UNIQUEMENT le matériel listé.");
-  lines.push("- Si le temps est court (30 min) ou la fréquence faible: privilégie le full-body et les supersets pour la densité. Plus de séances: tu peux répartir (haut/bas ou push/pull/jambes).");
-  lines.push("- Structure chaque séance en blocs de supersets quand pertinent. Types: 'superset agoniste/antagoniste' (repos 60s), 'superset complémentaire' (45s), 'non-compétitif' (45s). Finisher optionnel en série simple (30s).");
-  lines.push("- Indique séries × répétitions adaptées à l'objectif (force: 4-6 reps lourd; tonification/perte de gras: 10-15; santé: 12-15 contrôlé).");
-  lines.push("- Pour chaque exercice: une note brève (cue technique OU régression/progression selon le niveau).");
-  lines.push("- Donne des conseils de progression (comment augmenter la difficulté semaine après semaine) et de récupération.");
-  lines.push("");
-  lines.push("RÉPONDS EN JSON STRICT, SANS MARKDOWN, SANS TEXTE AUTOUR, structure exacte :");
-  lines.push('{"title":"nom motivant du programme","summary":"1-2 phrases qui résument l\'approche","weeklyStructure":"ex: 3 séances full-body","advice":["conseil progression","conseil récup"],"safetyNotes":["adaptation liée aux contraintes santé"],"sessions":[{"name":"Séance A — ...","focus":"groupe/objectif de la séance","durationMin":'+p.duree+',"warmup":["item 1","item 2"],"blocks":[{"type":"superset agoniste/antagoniste","rest":"60s","exercises":[{"name":"Exercice","sets":"3","reps":"10-12","note":"cue ou régression"}]}],"finisher":{"name":"nom ou null","detail":"description ou null"}}]}');
-  return lines.join("\n");
+  if(p.eviter)l.push("Exercices à éviter: "+p.eviter+".");
+  return l.join("\n");
+}
+
+function buildPlanPrompt(p){
+  return "Tu es un coach expert en renforcement musculaire, prudent et bienveillant. Conçois le CADRE d'un programme hebdomadaire personnalisé et SÛR.\n\n"+
+  profileSummary(p)+"\n\n"+
+  "Donne exactement "+p.freq+" séances pour la semaine. Si le temps est court ou la fréquence faible, privilégie le full-body ; sinon tu peux répartir (haut/bas, push/pull/jambes).\n"+
+  "RÉPONDS EN JSON STRICT, SANS MARKDOWN, SANS TEXTE AUTOUR :\n"+
+  '{"title":"nom motivant","summary":"1-2 phrases sur l\'approche","weeklyStructure":"ex: 3 séances full-body","advice":["conseil progression","conseil récup"],"safetyNotes":["adaptation liée aux contraintes santé"],"sessions":[{"name":"Séance A — ...","focus":"objectif de la séance en quelques mots"}]}';
+}
+
+function buildSessionPrompt(p,meta){
+  return "Tu es un coach expert en renforcement musculaire, prudent. Détaille UNE séance d'un programme.\n\n"+
+  profileSummary(p)+"\n\n"+
+  "SÉANCE À DÉTAILLER : "+meta.name+" — "+(meta.focus||"")+"\nDurée cible: "+p.duree+" min échauffement inclus. Utilise UNIQUEMENT le matériel listé.\n"+
+  "Structure en blocs de supersets quand pertinent. Types: 'superset agoniste/antagoniste' (repos 60s), 'superset complémentaire' (45s), 'non-compétitif' (45s). Finisher optionnel (série simple, 30s).\n"+
+  "Séries × reps selon l'objectif (force: 4-6 lourd ; tonification/perte de gras: 10-15 ; santé: 12-15 contrôlé). Pour chaque exercice, une note brève (cue technique OU régression).\n"+
+  "RÉPONDS EN JSON STRICT, SANS MARKDOWN, SANS TEXTE AUTOUR :\n"+
+  '{"name":"...","focus":"...","durationMin":'+p.duree+',"warmup":["item 1","item 2"],"blocks":[{"type":"superset agoniste/antagoniste","rest":"60s","exercises":[{"name":"Exercice","sets":"3","reps":"10-12","note":"cue ou régression"}]}],"finisher":{"name":"nom ou null","detail":"description ou null"}}';
+}
+
+async function callLLM(prompt,maxTokens){
+  var resp=await fetch('/.netlify/functions/generate',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})
+  });
+  var raw=await resp.text();
+  var data;
+  try{data=JSON.parse(raw)}catch(e){throw new Error('Réponse invalide ('+resp.status+'): '+raw.slice(0,140));}
+  if(!resp.ok)throw new Error('HTTP '+resp.status+': '+((data.error&&data.error.message)||raw.slice(0,140)));
+  var txt=(data.content||[]).map(function(i){return i.text||''}).join('');
+  var clean=txt.trim();
+  var m=clean.match(/```(?:json)?\s*([\s\S]*?)```/);if(m)clean=m[1].trim();
+  var s=clean.indexOf('{'),e=clean.lastIndexOf('}');
+  if(s!==-1&&e!==-1)clean=clean.slice(s,e+1);
+  return JSON.parse(clean);
 }
 
 async function generate(p){
   show('view-program');
-  document.getElementById('programContent').innerHTML=
-    '<div class="loader"><div class="spinner"></div><div class="lt">Construction du programme…</div><div class="ld">Ton coach analyse ton profil</div></div>';
   document.getElementById('hdrActions').innerHTML='';
-  try{
-    var resp=await fetch('/.netlify/functions/generate',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:4000,messages:[{role:'user',content:buildPrompt(p)}]})
+  document.getElementById('programContent').innerHTML=
+    '<div class="loader"><div class="spinner"></div><div class="lt">Construction du plan…</div><div class="ld">Ton coach analyse ton profil</div></div>';
+  var plan;
+  try{plan=await callLLM(buildPlanPrompt(p),1200);}
+  catch(err){showGenError(err);return;}
+  var program={
+    title:plan.title,summary:plan.summary,weeklyStructure:plan.weeklyStructure,
+    advice:plan.advice||[],safetyNotes:plan.safetyNotes||[],
+    sessions:(plan.sessions||[]).map(function(meta){return {name:meta.name,focus:meta.focus,_pending:true}})
+  };
+  if(!program.sessions.length){showGenError(new Error("Aucune séance renvoyée par le coach."));return;}
+  state.genProfile=p;
+  state.genMetas=program.sessions.map(function(s){return {name:s.name,focus:s.focus}});
+  renderProgramShell(program);
+  renderHeaderActions('view-program');
+  var jobs=state.genMetas.map(function(meta,i){
+    return callLLM(buildSessionPrompt(p,meta),1600).then(function(det){
+      program.sessions[i]=normalizeSession(det,meta);
+      fillSessionCard(i,program.sessions[i]);
+    }).catch(function(err){
+      program.sessions[i]={name:meta.name,focus:meta.focus,_error:err.message};
+      fillSessionError(i,err);
     });
-    var raw=await resp.text();
-    var data;
-    try{data=JSON.parse(raw)}catch(e){throw new Error('Réponse invalide ('+resp.status+'): '+raw.slice(0,160));}
-    if(!resp.ok)throw new Error('HTTP '+resp.status+': '+((data.error&&data.error.message)||raw.slice(0,160)));
-    var txt=(data.content||[]).map(function(i){return i.text||''}).join('');
-    var clean=txt.trim();
-    var m=clean.match(/```(?:json)?\s*([\s\S]*?)```/);if(m)clean=m[1].trim();
-    var s=clean.indexOf('{'),e2=clean.lastIndexOf('}');
-    if(s!==-1&&e2!==-1)clean=clean.slice(s,e2+1);
-    var program=JSON.parse(clean);
-    var d=Store.loadProfile(state.currentId);
-    d.program=program;d.generatedAt=Date.now();
-    Store.saveProfile(state.currentId,d);
-    renderProgram(program);
-    renderHeaderActions('view-program');
-  }catch(err){
-    document.getElementById('programContent').innerHTML=
-      '<div class="err">Impossible de générer le programme.<br>'+esc(err.message)+'</div>'+
-      '<button class="btn btn-primary" onclick="regenerate()">Réessayer</button>'+
-      '<div style="height:10px"></div>'+
-      '<button class="btn btn-ghost" onclick="editProfile()">Revenir au profil</button>';
-    renderHeaderActions('view-program');
-  }
+  });
+  await Promise.allSettled(jobs);
+  var d=Store.loadProfile(state.currentId);
+  d.program=program;d.generatedAt=Date.now();
+  Store.saveProfile(state.currentId,d);
+}
+function showGenError(err){
+  document.getElementById('programContent').innerHTML=
+    '<div class="err">Impossible de générer le programme.<br>'+esc(err.message)+'</div>'+
+    '<button class="btn btn-primary" onclick="regenerate()">Réessayer</button>'+
+    '<div style="height:10px"></div>'+
+    '<button class="btn btn-ghost" onclick="editProfile()">Revenir au profil</button>';
+  renderHeaderActions('view-program');
+}
+function normalizeSession(det,meta){
+  det=det||{};
+  return {name:det.name||meta.name,focus:det.focus||meta.focus,durationMin:det.durationMin,
+    warmup:det.warmup||[],blocks:det.blocks||[],finisher:det.finisher||null};
 }
 function regenerate(){
   var p=Store.loadProfile(state.currentId).profile;
   if(p)generate(p);else editProfile();
 }
+async function retrySession(i){
+  var p=state.genProfile,meta=state.genMetas&&state.genMetas[i];
+  if(!p||!meta){regenerate();return;}
+  var bd=document.getElementById('sb-'+i);
+  if(bd)bd.innerHTML='<div class="loader" style="padding:24px 10px"><div class="spinner"></div><div class="ld">Génération de la séance…</div></div>';
+  try{
+    var se=normalizeSession(await callLLM(buildSessionPrompt(p,meta),1600),meta);
+    fillSessionCard(i,se);
+    var d=Store.loadProfile(state.currentId);
+    if(d.program&&d.program.sessions){d.program.sessions[i]=se;Store.saveProfile(state.currentId,d);}
+  }catch(err){fillSessionError(i,err);}
+}
 
 /* ======================================================================
    RENDU PROGRAMME
    ====================================================================== */
-function renderProgram(prog){
-  var h='';
-  h+='<div class="prog-head fade">';
-  h+='<h2>'+esc(prog.title||'Ton programme')+'</h2>';
+function progHeadHTML(prog){
+  var h='<div class="prog-head fade"><h2>'+esc(prog.title||'Ton programme')+'</h2>';
   if(prog.summary)h+='<div class="sum">'+esc(prog.summary)+'</div>';
   if(prog.weeklyStructure)h+='<div class="ws">'+esc(prog.weeklyStructure)+'</div>';
   h+='</div>';
-
   if(prog.advice&&prog.advice.length){
     h+='<div class="advice"><div class="subh" style="margin-top:0">Conseils</div><ul>'+
       prog.advice.map(function(a){return '<li>'+esc(a)+'</li>'}).join('')+'</ul></div>';
@@ -691,40 +725,71 @@ function renderProgram(prog){
     h+='<div class="advice safety"><div class="subh" style="margin-top:0;color:var(--acc2)">À garder en tête</div><ul>'+
       prog.safetyNotes.map(function(a){return '<li>'+esc(a)+'</li>'}).join('')+'</ul></div>';
   }
-
-  (prog.sessions||[]).forEach(function(se){
-    h+='<div class="session">';
-    h+='<div class="session-hd"><div class="sn">'+esc(se.name||'Séance')+'</div>';
-    if(se.focus)h+='<div class="sf">'+esc(se.focus)+'</div>';
-    if(se.durationMin)h+='<div class="sd">'+esc(se.durationMin)+' min</div>';
-    h+='</div><div class="session-bd">';
-    if(se.warmup&&se.warmup.length){
-      h+='<div class="subh">Échauffement</div><div class="wu">'+se.warmup.map(function(w){return '<span>'+esc(w)+'</span>'}).join('')+'</div>';
-    }
-    if(se.blocks&&se.blocks.length){
-      h+='<div class="subh">Séance</div>';
-      se.blocks.forEach(function(bl){
-        h+='<div class="block">';
-        if(bl.type)h+='<div class="block-t">'+esc(bl.type)+'</div>';
-        if(bl.rest)h+='<div class="block-r">Repos : '+esc(bl.rest)+'</div>';
-        (bl.exercises||[]).forEach(function(ex){
-          var sr=(ex.sets||'')+(ex.sets&&ex.reps?' × ':'')+(ex.reps||'');
-          h+='<div class="exo"><div class="exo-top"><div class="exo-n">'+esc(ex.name||'')+'</div><div class="exo-sr">'+esc(sr)+'</div></div>';
-          if(ex.note)h+='<div class="exo-note">'+esc(ex.note)+'</div>';
-          h+='</div>';
-        });
+  return h;
+}
+function sessionHeadHTML(se){
+  var h='<div class="session-hd"><div class="sn">'+esc(se.name||'Séance')+'</div>';
+  if(se.focus)h+='<div class="sf">'+esc(se.focus)+'</div>';
+  if(se.durationMin)h+='<div class="sd">'+esc(se.durationMin)+' min</div>';
+  h+='</div>';
+  return h;
+}
+function sessionInnerHTML(se){
+  var h='';
+  if(se.warmup&&se.warmup.length){
+    h+='<div class="subh">Échauffement</div><div class="wu">'+se.warmup.map(function(w){return '<span>'+esc(w)+'</span>'}).join('')+'</div>';
+  }
+  if(se.blocks&&se.blocks.length){
+    h+='<div class="subh">Séance</div>';
+    se.blocks.forEach(function(bl){
+      h+='<div class="block">';
+      if(bl.type)h+='<div class="block-t">'+esc(bl.type)+'</div>';
+      if(bl.rest)h+='<div class="block-r">Repos : '+esc(bl.rest)+'</div>';
+      (bl.exercises||[]).forEach(function(ex){
+        var sr=(ex.sets||'')+(ex.sets&&ex.reps?' × ':'')+(ex.reps||'');
+        h+='<div class="exo"><div class="exo-top"><div class="exo-n">'+esc(ex.name||'')+'</div><div class="exo-sr">'+esc(sr)+'</div></div>';
+        if(ex.note)h+='<div class="exo-note">'+esc(ex.note)+'</div>';
         h+='</div>';
       });
-    }
-    if(se.finisher&&se.finisher.name&&se.finisher.name!=='null'){
-      h+='<div class="finisher"><div class="ft">Finisher</div><div class="exo-n">'+esc(se.finisher.name)+'</div>';
-      if(se.finisher.detail&&se.finisher.detail!=='null')h+='<div class="exo-note">'+esc(se.finisher.detail)+'</div>';
       h+='</div>';
-    }
-    h+='</div></div>';
+    });
+  }
+  if(se.finisher&&se.finisher.name&&se.finisher.name!=='null'){
+    h+='<div class="finisher"><div class="ft">Finisher</div><div class="exo-n">'+esc(se.finisher.name)+'</div>';
+    if(se.finisher.detail&&se.finisher.detail!=='null')h+='<div class="exo-note">'+esc(se.finisher.detail)+'</div>';
+    h+='</div>';
+  }
+  return h||'<div class="card-sub">Séance vide.</div>';
+}
+function renderProgram(prog){
+  var h=progHeadHTML(prog);
+  (prog.sessions||[]).forEach(function(se){
+    h+='<div class="session">'+sessionHeadHTML(se)+'<div class="session-bd">'+sessionInnerHTML(se)+'</div></div>';
   });
   document.getElementById('programContent').innerHTML=h;
   window.scrollTo(0,0);
+}
+function renderProgramShell(prog){
+  var h=progHeadHTML(prog);
+  (prog.sessions||[]).forEach(function(se,i){
+    h+='<div class="session" id="sc-'+i+'">'+sessionHeadHTML(se)+
+       '<div class="session-bd" id="sb-'+i+'"><div class="loader" style="padding:24px 10px"><div class="spinner"></div><div class="ld">Génération de la séance…</div></div></div></div>';
+  });
+  document.getElementById('programContent').innerHTML=h;
+  window.scrollTo(0,0);
+}
+function fillSessionCard(i,se){
+  var bd=document.getElementById('sb-'+i);if(!bd)return;
+  bd.innerHTML=sessionInnerHTML(se);
+  var hd=document.querySelector('#sc-'+i+' .session-hd');
+  if(hd&&se.durationMin&&!hd.querySelector('.sd')){
+    var d=document.createElement('div');d.className='sd';d.textContent=se.durationMin+' min';hd.appendChild(d);
+  }
+}
+function fillSessionError(i,err){
+  var bd=document.getElementById('sb-'+i);if(!bd)return;
+  bd.innerHTML='<div class="err" style="margin-bottom:10px">Séance non générée.<br>'+esc(err.message||'')+'</div>'+
+    '<button class="btn btn-ghost" onclick="retrySession('+i+')">Réessayer cette séance</button>';
 }
 
 /* ======================================================================
