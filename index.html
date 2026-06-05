@@ -431,6 +431,7 @@ function buildPlanPrompt(p,bilan){
   return "Tu es un coach expert en renforcement musculaire, prudent et bienveillant. Conçois le CADRE d'un bloc de "+BLOCK_WEEKS+" semaines, personnalisé et SÛR.\n\n"+
   profileSummary(p)+"\n\n"+cal+
   "Donne exactement "+p.freq+" séances (la trame de la semaine). Full-body si peu de temps/fréquence, sinon split cohérent.\n"+
+  "Sois TRÈS concis : max 8 mots par conseil/note, max 5 mots par name/focus de séance.\n"+
   "RÉPONDS EN JSON STRICT, SANS MARKDOWN :\n"+
   '{"title":"nom motivant","summary":"1-2 phrases sur l\'approche","weeklyStructure":"ex: 3 séances full-body, bloc de '+BLOCK_WEEKS+' semaines","advice":["conseil progression","conseil récup"],"safetyNotes":["adaptation contraintes santé"],"sessions":[{"name":"Séance A — ...","focus":"objectif en quelques mots"}]}';
 }
@@ -466,12 +467,12 @@ async function generate(p,bilan){
   document.getElementById('hdrActions').innerHTML='';
   document.getElementById('todayContent').innerHTML='<div class="loader"><div class="spinner"></div><div class="lt">Construction de ton bloc…</div><div class="ld">Ton coach prépare 6 semaines sur mesure</div></div>';
   try{
-    var plan=await callLLM(buildPlanPrompt(p,bilan),1200);
+    var plan=await callLLM(buildPlanPrompt(p,bilan),2000);
     var metas=(plan.sessions||[]).map(function(m){return{name:m.name,focus:m.focus}});
     if(!metas.length)throw new Error("Aucune séance renvoyée.");
-    var phaseA=await Promise.all(metas.map(function(m){return callLLM(buildSessionPrompt(p,m,null),1500).then(function(d){return normalizeSession(d,m)}).catch(function(){return{name:m.name,focus:m.focus,warmup:[],blocks:[],finisher:null}});}));
+    var phaseA=await Promise.all(metas.map(function(m){return callLLM(buildSessionPrompt(p,m,null),2000).then(function(d){return normalizeSession(d,m)}).catch(function(){return{name:m.name,focus:m.focus,warmup:[],blocks:[],finisher:null}});}));
     var exosA=extractExos(phaseA);
-    var phaseB=await Promise.all(metas.map(function(m,idx){return callLLM(buildSessionPrompt(p,m,exosA),1500).then(function(d){return normalizeSession(d,m)}).catch(function(){return phaseA[idx]});}));
+    var phaseB=await Promise.all(metas.map(function(m,idx){return callLLM(buildSessionPrompt(p,m,exosA),2000).then(function(d){return normalizeSession(d,m)}).catch(function(){return phaseA[idx]});}));
     var program={title:plan.title,summary:plan.summary,weeklyStructure:plan.weeklyStructure,advice:plan.advice||[],safetyNotes:plan.safetyNotes||[],blockWeeks:BLOCK_WEEKS,sessionsA:phaseA,sessionsB:phaseB,generatedAt:Date.now()};
     var d=Store.loadProfile(state.currentId);d.program=program;d.tracking={done:{},notes:{}};Store.saveProfile(state.currentId,d);
     renderToday();
