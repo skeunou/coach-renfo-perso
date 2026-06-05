@@ -127,6 +127,14 @@ textarea{resize:vertical;min-height:64px}
 .done-btn.on{background:var(--grn);color:#0d0d0f;border-color:var(--grn)}
 .sess-note{width:100%;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;color:var(--txt);font-family:'DM Sans';font-size:14px;padding:9px;min-height:44px;resize:vertical}
 .sess-note:focus{outline:none;border-color:var(--acc)}
+.del-profile{background:none;border:none;color:var(--mut);font-size:16px;padding:4px 8px;cursor:pointer;border-radius:6px;line-height:1;flex-shrink:0}
+.del-profile:active{color:var(--red)}
+#timerBar{position:fixed;bottom:0;left:0;right:0;background:var(--surf);border-top:2px solid var(--acc);padding:12px 16px;display:flex;align-items:center;gap:10px;z-index:40}
+#timerDisplay{font-family:'Bebas Neue';font-size:38px;color:var(--acc);letter-spacing:2px;min-width:80px;line-height:1}
+.t-presets{display:flex;gap:5px;flex:1}
+.t-pre{flex:1;padding:8px 0;border:1px solid var(--bdr);background:var(--surf2);color:var(--mut);border-radius:7px;font-family:'Bebas Neue';font-size:16px;letter-spacing:1px;cursor:pointer}
+.t-pre.on{background:var(--acc);color:#0d0d0f;border-color:var(--acc)}
+#timerBtn{width:46px;height:46px;border-radius:50%;border:none;background:var(--acc);color:#0d0d0f;font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .today-hello{font-size:13px;color:var(--mut);margin-bottom:2px}
 .today-week{font-family:'Bebas Neue';font-size:14px;letter-spacing:1px;color:var(--acc);margin-bottom:14px}
 .today-empty{text-align:center;padding:36px 18px}
@@ -302,6 +310,18 @@ textarea{resize:vertical;min-height:64px}
   </div>
 </div>
 
+<!-- TIMER BAR -->
+<div id="timerBar" class="hidden">
+  <div id="timerDisplay">01:00</div>
+  <div class="t-presets">
+    <button class="t-pre" data-p="30" onclick="setPreset(30)">30s</button>
+    <button class="t-pre" data-p="45" onclick="setPreset(45)">45s</button>
+    <button class="t-pre on" data-p="60" onclick="setPreset(60)">60s</button>
+    <button class="t-pre" data-p="90" onclick="setPreset(90)">90s</button>
+  </div>
+  <button id="timerBtn" onclick="toggleTimer()">▶</button>
+</div>
+
 <script>
 var BLOCK_WEEKS=6;
 var BREATH_SECONDS=60;
@@ -354,8 +374,17 @@ function renderProfiles(){
     var d=Store.loadProfile(p.id);
     var desc=d.program?(d.program.title||'Bloc en cours'):(d.profile?'Questionnaire fait':'Profil à compléter');
     return '<div class="profile-item" onclick="askCode(\''+p.id+'\')"><div class="avatar">'+(p.name||'?').charAt(0).toUpperCase()+'</div>'+
-      '<div class="meta"><div class="name">'+esc(p.name)+'</div><div class="desc">'+esc(desc)+'</div></div><div class="arrow">›</div></div>';
+      '<div class="meta"><div class="name">'+esc(p.name)+'</div><div class="desc">'+esc(desc)+'</div></div>'+
+      '<div class="arrow">›</div>'+
+      '<button class="del-profile" onclick="event.stopPropagation();deleteProfile(\''+p.id+'\')" title="Supprimer">✕</button></div>';
   }).join('');
+}
+function deleteProfile(id){
+  var m=Store.getProfileMeta(id);
+  if(!confirm('Supprimer le profil "'+m.name+'" et toutes ses données ?\nCette action est irréversible.'))return;
+  Store._saveList(Store.listProfiles().filter(function(p){return p.id!==id}));
+  localStorage.removeItem('renfo:profile:'+id);
+  renderProfiles();
 }
 function askCode(id){
   state.pendingId=id;var m=Store.getProfileMeta(id);
@@ -428,7 +457,7 @@ function profileSummary(p){
 }
 function buildPlanPrompt(p,bilan){
   var cal=bilan?("Bilan du bloc précédent: niveau jugé '"+bilan.niveau+"', souhait: '"+bilan.suite+"'. Ajuste en conséquence (monte l'intensité si trop facile, change le découpage si la personne veut varier).\n"):"";
-  return "Tu es un coach expert en renforcement musculaire, prudent et bienveillant. Conçois le CADRE d'un bloc de "+BLOCK_WEEKS+" semaines, personnalisé et SÛR.\n\n"+
+  return "Tu es un coach expert en renforcement musculaire, prudent et bienveillant. Réponds TOUJOURS EN FRANÇAIS. Conçois le CADRE d'un bloc de "+BLOCK_WEEKS+" semaines, personnalisé et SÛR.\n\n"+
   profileSummary(p)+"\n\n"+cal+
   "Donne exactement "+p.freq+" séances (la trame de la semaine). Full-body si peu de temps/fréquence, sinon split cohérent.\n"+
   "Sois TRÈS concis : max 8 mots par conseil/note, max 5 mots par name/focus de séance.\n"+
@@ -437,7 +466,7 @@ function buildPlanPrompt(p,bilan){
 }
 function buildSessionPrompt(p,meta,prevExos){
   var anti=(prevExos&&prevExos.length)?("Pour varier, n'utilise PAS ces exercices: "+prevExos.slice(0,18).join(', ')+".\n"):"";
-  return "Tu es un coach expert en renforcement musculaire, prudent. Détaille UNE séance.\n\n"+profileSummary(p)+"\n\n"+anti+
+  return "Tu es un coach expert en renforcement musculaire, prudent. Réponds TOUJOURS EN FRANÇAIS. Détaille UNE séance.\n\n"+profileSummary(p)+"\n\n"+anti+
   "SÉANCE : "+meta.name+" — "+(meta.focus||"")+"\nDurée cible: "+p.duree+" min échauffement inclus. Utilise UNIQUEMENT le matériel listé.\n"+
   "Supersets quand pertinent: 'superset agoniste/antagoniste' (repos 60s), 'superset complémentaire' (45s), 'non-compétitif' (45s). Finisher optionnel (30s).\n"+
   "Séries × reps selon l'objectif (force 4-6 ; tonification/perte 10-15 ; santé 12-15). Note brève par exercice (cue ou régression).\n"+
@@ -517,7 +546,7 @@ function renderToday(){
   h+='<div class="today-week">'+esc(g.label)+'</div>';
   h+=progressHTML();
   if(idx===-1){
-    h+='<div class="card today-empty"><div class="te-t">Semaine bouclée</div><div class="te-d">Tu as fait toutes tes séances de cette semaine. Repos mérité — la semaine suivante s\'ouvre automatiquement.</div></div>';
+    h+='<div class="card today-empty"><div class="te-t">Semaine bouclée ✓</div><div class="te-d">Tu as fait toutes tes séances de cette semaine. Repos mérité — la semaine suivante s\'ouvre automatiquement.</div><div style="margin-top:10px;font-size:13px;color:var(--mut)">Pour refaire une séance : <span style="color:var(--acc);cursor:pointer" onclick="openProgram()">Voir le programme</span> et décoche-la.</div></div>';
   }else{
     var base=sessionsBaseForWeek(prog,wk)[idx];var se=(wk===6)?applyDeload(base):base;
     h+='<div class="session fade"><div class="session-hd"><div class="sn">'+esc(se.name||'Séance')+'</div>'+(se.focus?'<div class="sf">'+esc(se.focus)+'</div>':'')+(se.durationMin?'<div class="sd">'+esc(se.durationMin)+' min</div>':'')+'</div></div>';
@@ -597,7 +626,9 @@ function renderSession(){
   h+='<div class="card"><div class="subh" style="margin-top:0">Ta note (charges, ressenti)</div><textarea class="sess-note" data-key="'+key+'" placeholder="Ex: élastique medium, 3×12 ok" onblur="saveNoteEl(this)">'+esc(note)+'</textarea></div>';
   h+='<button class="btn btn-primary" onclick="markSessionDone()">Séance terminée ✓</button><div style="height:10px"></div>';
   h+='<button class="btn btn-ghost" onclick="backToToday()">Plus tard</button>';
+  h+='<div style="height:90px"></div>';
   document.getElementById('sessionContent').innerHTML=h;window.scrollTo(0,0);
+  showTimerBar();
 }
 function sessionInnerHTML(se){
   var h='';
@@ -624,15 +655,21 @@ function saveNoteEl(el){var t=getTracking();t.notes[el.getAttribute('data-key')]
 function markSessionDone(){
   var as=state.activeSession;if(!as)return backToToday();
   var t=getTracking();t.done['w'+as.week+'s'+as.index]=true;saveTracking(t);
+  hideTimerBar();
   var prog=currentProgram();
   if(blockComplete(prog)){showBilan();return;}
   backToToday();
 }
-function backToToday(){renderToday();show('view-today');}
+function backToToday(){hideTimerBar();renderToday();show('view-today');}
 
 /* ---- PROGRAMME COMPLET ---- */
 function openProgram(){if(!state.weekOverride)state.weekOverride=currentWeek(currentProgram());renderProgram();show('view-program');}
 function selectWeek(w){state.weekOverride=w;renderProgram();}
+function hasMissed(prog,week){
+  var list=sessionsBaseForWeek(prog,week);var t=getTracking();
+  for(var i=0;i<list.length;i++){if(!t.done['w'+week+'s'+i])return true;}
+  return false;
+}
 function renderProgram(){
   var prog=currentProgram();if(!prog)return;
   var wk=state.weekOverride||currentWeek(prog);var g=WEEK_GUIDE[wk]||WEEK_GUIDE[1];
@@ -641,7 +678,7 @@ function renderProgram(){
   if(prog.advice&&prog.advice.length)h+='<div class="advice"><div class="subh" style="margin-top:0">Conseils</div><ul>'+prog.advice.map(function(a){return '<li>'+esc(a)+'</li>'}).join('')+'</ul></div>';
   if(prog.safetyNotes&&prog.safetyNotes.length)h+='<div class="advice safety"><div class="subh" style="margin-top:0;color:var(--acc2)">À garder en tête</div><ul>'+prog.safetyNotes.map(function(a){return '<li>'+esc(a)+'</li>'}).join('')+'</ul></div>';
   h+=progressHTML();
-  h+='<div class="wk-sel">';for(var w=1;w<=BLOCK_WEEKS;w++){var gg=WEEK_GUIDE[w];h+='<button class="wk-btn'+(w===wk?' on':'')+(gg&&gg.deload?' deload':'')+'" onclick="selectWeek('+w+')">S'+w+'</button>';}h+='</div>';
+  h+='<div class="wk-sel">';for(var w=1;w<=BLOCK_WEEKS;w++){var gg=WEEK_GUIDE[w];var missed=(w<wk&&hasMissed(prog,w));h+='<button class="wk-btn'+(w===wk?' on':'')+(gg&&gg.deload?' deload':'')+'" onclick="selectWeek('+w+')">S'+w+(missed?'<br><span style="font-size:9px;color:var(--warn)">⚠</span>':'')+'</button>';}h+='</div>';
   h+='<div class="wk-banner'+(g.deload?' deload':'')+'"><div class="wkb-label">'+esc(g.label)+'</div><div class="wkb-tip">'+esc(g.tip)+'</div></div>';
   var list=sessionsBaseForWeek(prog,wk);var t=getTracking();
   list.forEach(function(base,i){
@@ -679,6 +716,61 @@ function setBilan(el){
   if(state._bilan.niveau&&state._bilan.suite){var btn=document.getElementById('bilanBtn');if(btn)btn.removeAttribute('disabled');}
 }
 function submitBilan(){var p=Store.loadProfile(state.currentId).profile;generate(p,state._bilan);}
+
+/* ---- TIMER DE RÉCUPÉRATION ---- */
+var timerState={secs:60,preset:60,running:false,_iv:null,_wl:null};
+function fmtTimer(s){var m=Math.floor(s/60);var ss=s%60;return(m<10?'0':'')+m+':'+(ss<10?'0':'')+ss;}
+function updateTimerDisplay(){var el=document.getElementById('timerDisplay');if(el)el.textContent=fmtTimer(timerState.secs);}
+function setPreset(s){
+  clearInterval(timerState._iv);timerState.running=false;timerState.secs=s;timerState.preset=s;
+  updateTimerDisplay();
+  var btn=document.getElementById('timerBtn');if(btn)btn.textContent='▶';
+  document.querySelectorAll('.t-pre').forEach(function(b){b.classList.toggle('on',parseInt(b.getAttribute('data-p'))===s);});
+}
+function toggleTimer(){
+  if(timerState.running){
+    clearInterval(timerState._iv);timerState.running=false;
+    var btn=document.getElementById('timerBtn');if(btn)btn.textContent='▶';
+  }else{
+    if(timerState.secs<=0)timerState.secs=timerState.preset;
+    timerState.running=true;
+    var btn=document.getElementById('timerBtn');if(btn)btn.textContent='⏸';
+    timerState._iv=setInterval(function(){
+      timerState.secs--;updateTimerDisplay();
+      if(timerState.secs<=0){
+        clearInterval(timerState._iv);timerState.running=false;
+        var b=document.getElementById('timerBtn');if(b)b.textContent='▶';
+        beepDouble();
+      }
+    },1000);
+  }
+}
+function beepDouble(){
+  try{
+    var ctx=new(window.AudioContext||window.webkitAudioContext)();
+    function beep(freq,delay){var o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=freq;g.gain.setValueAtTime(0.3,ctx.currentTime+delay);g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+delay+0.3);o.start(ctx.currentTime+delay);o.stop(ctx.currentTime+delay+0.35);}
+    beep(880,0);beep(1100,0.4);
+  }catch(e){}
+}
+function showTimerBar(){
+  setPreset(60);
+  document.getElementById('timerBar').classList.remove('hidden');
+  if(navigator.wakeLock){
+    navigator.wakeLock.request('screen').then(function(wl){timerState._wl=wl;}).catch(function(){});
+    document.addEventListener('visibilitychange',_onVis);
+  }
+}
+function _onVis(){
+  if(document.visibilityState==='visible'&&navigator.wakeLock&&!timerState._wl){
+    navigator.wakeLock.request('screen').then(function(wl){timerState._wl=wl;}).catch(function(){});
+  }
+}
+function hideTimerBar(){
+  clearInterval(timerState._iv);timerState.running=false;timerState.secs=60;
+  document.getElementById('timerBar').classList.add('hidden');
+  if(timerState._wl){timerState._wl.release().catch(function(){});timerState._wl=null;}
+  document.removeEventListener('visibilitychange',_onVis);
+}
 
 /* ---- LABELS & UTILS ---- */
 var MAT_LABEL={poids_du_corps:'poids du corps',elastiques:'élastiques',halteres:'haltères',kettlebell:'kettlebell',barre:'barre + disques',banc:'banc',trx:'TRX / barre de traction',salle:'salle complète'};
