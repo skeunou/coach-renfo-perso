@@ -133,6 +133,26 @@ textarea{resize:vertical;min-height:64px}
 .fade{animation:fade .25s ease}
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
+/* Bloc / semaines / suivi */
+.prog-track{background:var(--surf);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.pt-top{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);margin-bottom:8px}
+.pt-bar{height:8px;background:var(--surf2);border-radius:5px;overflow:hidden}
+.pt-fill{height:100%;background:var(--acc);border-radius:5px;transition:width .3s}
+.wk-sel{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px}
+.wk-btn{flex:1;min-width:46px;padding:10px 0;border:1px solid var(--bdr);background:var(--surf2);color:var(--mut);border-radius:8px;font-family:'Bebas Neue';font-size:18px;letter-spacing:1px;cursor:pointer}
+.wk-btn.on{background:var(--acc);color:#0d0d0f;border-color:var(--acc)}
+.wk-btn.deload{border-style:dashed}
+.wk-btn.deload.on{background:var(--warn);border-color:var(--warn)}
+.wk-banner{background:var(--surf);border:1px solid var(--bdr);border-left:3px solid var(--acc);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.wk-banner.deload{border-left-color:var(--warn)}
+.wkb-label{font-family:'Bebas Neue';font-size:18px;letter-spacing:.5px;color:var(--acc)}
+.wk-banner.deload .wkb-label{color:var(--warn)}
+.wkb-tip{font-size:13px;color:var(--txt);margin-top:3px}
+.sess-actions{margin-bottom:12px}
+.done-btn{width:100%;padding:11px;border-radius:8px;border:1px solid var(--bdr);background:var(--surf2);color:var(--txt);font-family:'DM Sans';font-weight:600;font-size:14px;cursor:pointer;margin-bottom:8px}
+.done-btn.on{background:var(--grn);color:#0d0d0f;border-color:var(--grn)}
+.sess-note{width:100%;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;color:var(--txt);font-family:'DM Sans';font-size:14px;padding:9px;min-height:44px;resize:vertical}
+.sess-note:focus{outline:none;border-color:var(--acc)}
 .foot{text-align:center;font-size:11px;color:var(--mut);padding:24px 0 0;letter-spacing:.5px}
 </style>
 </head>
@@ -332,7 +352,7 @@ textarea{resize:vertical;min-height:64px}
   <div id="programContent"></div>
   <div class="btn-row" style="margin-top:8px">
     <button class="btn btn-ghost" onclick="editProfile()">Modifier mon profil</button>
-    <button class="btn btn-primary" onclick="regenerate()">Régénérer</button>
+    <button class="btn btn-primary" onclick="newBlock()">Nouveau bloc</button>
   </div>
   <div class="foot">Généré par IA · adapte les charges à ton ressenti</div>
 </div>
@@ -596,6 +616,29 @@ function editProfile(){
 /* ======================================================================
    GÉNÉRATION IA (via proxy Netlify)
    ====================================================================== */
+var BLOCK_WEEKS=6;
+var WEEK_GUIDE={
+  1:{label:"Semaine 1 · Adaptation",tip:"Charges confortables, priorité à la technique et à l'amplitude complète."},
+  2:{label:"Semaine 2 · Volume",tip:"Ajoute 1 répétition par série par rapport à la semaine 1."},
+  3:{label:"Semaine 3 · Volume +",tip:"Vise le haut de la fourchette de répétitions sur chaque exercice."},
+  4:{label:"Semaine 4 · Intensité",tip:"Augmente légèrement la charge (ou prends une variante plus dure), garde les répétitions."},
+  5:{label:"Semaine 5 · Pic",tip:"Semaine la plus exigeante : la charge maîtrisée la plus lourde, séries complètes."},
+  6:{label:"Semaine 6 · Déload",tip:"Récupération : volume réduit (une série de moins), charges légères. Tu prépares le bloc suivant.",deload:true}
+};
+
+function currentProgram(){var d=Store.loadProfile(state.currentId);return d.program||null;}
+function getTracking(){var d=Store.loadProfile(state.currentId);return d.tracking||{done:{},notes:{}};}
+function saveTracking(t){var d=Store.loadProfile(state.currentId);d.tracking=t;Store.saveProfile(state.currentId,d);}
+function extractExos(prog){
+  if(!prog||!prog.sessions)return [];
+  var s=[];
+  prog.sessions.forEach(function(se){
+    (se.blocks||[]).forEach(function(bl){(bl.exercises||[]).forEach(function(ex){if(ex&&ex.name)s.push(ex.name)})});
+    if(se.finisher&&se.finisher.name&&se.finisher.name!=='null')s.push(se.finisher.name);
+  });
+  return s.slice(0,24);
+}
+
 function profileSummary(p){
   var mat=p.materiel.map(function(m){return MAT_LABEL[m]||m}).join(', ');
   var bless=p.blessures.length?p.blessures.map(function(b){return BLES_LABEL[b]||b}).join(', '):'aucune';
@@ -612,17 +655,20 @@ function profileSummary(p){
   return l.join("\n");
 }
 
-function buildPlanPrompt(p){
-  return "Tu es un coach expert en renforcement musculaire, prudent et bienveillant. Conçois le CADRE d'un programme hebdomadaire personnalisé et SÛR.\n\n"+
+function buildPlanPrompt(p,prevExos){
+  var anti=(prevExos&&prevExos.length)?("Pour varier par rapport au bloc précédent, change la plupart des exercices ; évite autant que possible: "+prevExos.slice(0,18).join(', ')+".\n"):"";
+  return "Tu es un coach expert en renforcement musculaire, prudent et bienveillant. Conçois le CADRE d'un bloc d'entraînement de "+BLOCK_WEEKS+" semaines (progression puis déload), personnalisé et SÛR.\n\n"+
   profileSummary(p)+"\n\n"+
-  "Donne exactement "+p.freq+" séances pour la semaine. Si le temps est court ou la fréquence faible, privilégie le full-body ; sinon tu peux répartir (haut/bas, push/pull/jambes).\n"+
+  anti+
+  "Donne exactement "+p.freq+" séances qui constituent la SEMAINE DE BASE (elles resteront stables sur tout le bloc, la progression se fera en charge/volume). Si le temps est court ou la fréquence faible, privilégie le full-body ; sinon tu peux répartir (haut/bas, push/pull/jambes).\n"+
   "RÉPONDS EN JSON STRICT, SANS MARKDOWN, SANS TEXTE AUTOUR :\n"+
-  '{"title":"nom motivant","summary":"1-2 phrases sur l\'approche","weeklyStructure":"ex: 3 séances full-body","advice":["conseil progression","conseil récup"],"safetyNotes":["adaptation liée aux contraintes santé"],"sessions":[{"name":"Séance A — ...","focus":"objectif de la séance en quelques mots"}]}';
+  '{"title":"nom motivant","summary":"1-2 phrases sur l\'approche du bloc","weeklyStructure":"ex: 3 séances full-body, bloc de '+BLOCK_WEEKS+' semaines","advice":["conseil progression","conseil récup"],"safetyNotes":["adaptation liée aux contraintes santé"],"sessions":[{"name":"Séance A — ...","focus":"objectif de la séance en quelques mots"}]}';
 }
 
-function buildSessionPrompt(p,meta){
-  return "Tu es un coach expert en renforcement musculaire, prudent. Détaille UNE séance d'un programme.\n\n"+
-  profileSummary(p)+"\n\n"+
+function buildSessionPrompt(p,meta,prevExos){
+  var anti=(prevExos&&prevExos.length)?("Évite de reprendre ces exercices du bloc précédent: "+prevExos.slice(0,18).join(', ')+".\n"):"";
+  return "Tu es un coach expert en renforcement musculaire, prudent. Détaille la SEMAINE DE BASE d'UNE séance d'un bloc de "+BLOCK_WEEKS+" semaines.\n\n"+
+  profileSummary(p)+"\n\n"+anti+
   "SÉANCE À DÉTAILLER : "+meta.name+" — "+(meta.focus||"")+"\nDurée cible: "+p.duree+" min échauffement inclus. Utilise UNIQUEMENT le matériel listé.\n"+
   "Structure en blocs de supersets quand pertinent. Types: 'superset agoniste/antagoniste' (repos 60s), 'superset complémentaire' (45s), 'non-compétitif' (45s). Finisher optionnel (série simple, 30s).\n"+
   "Séries × reps selon l'objectif (force: 4-6 lourd ; tonification/perte de gras: 10-15 ; santé: 12-15 contrôlé). Pour chaque exercice, une note brève (cue technique OU régression).\n"+
@@ -648,25 +694,30 @@ async function callLLM(prompt,maxTokens){
 }
 
 async function generate(p){
-  show('view-program');
+  show('view-program');state.currentWeek=1;
   document.getElementById('hdrActions').innerHTML='';
   document.getElementById('programContent').innerHTML=
-    '<div class="loader"><div class="spinner"></div><div class="lt">Construction du plan…</div><div class="ld">Ton coach analyse ton profil</div></div>';
+    '<div class="loader"><div class="spinner"></div><div class="lt">Construction du bloc…</div><div class="ld">Ton coach analyse ton profil</div></div>';
+  var prevExos=extractExos(currentProgram());
   var plan;
-  try{plan=await callLLM(buildPlanPrompt(p),1200);}
+  try{plan=await callLLM(buildPlanPrompt(p,prevExos),1200);}
   catch(err){showGenError(err);return;}
   var program={
     title:plan.title,summary:plan.summary,weeklyStructure:plan.weeklyStructure,
-    advice:plan.advice||[],safetyNotes:plan.safetyNotes||[],
+    advice:plan.advice||[],safetyNotes:plan.safetyNotes||[],blockWeeks:BLOCK_WEEKS,
     sessions:(plan.sessions||[]).map(function(meta){return {name:meta.name,focus:meta.focus,_pending:true}})
   };
   if(!program.sessions.length){showGenError(new Error("Aucune séance renvoyée par le coach."));return;}
+  // nouveau bloc -> remise à zéro du suivi
+  var d=Store.loadProfile(state.currentId);
+  d.tracking={done:{},notes:{}};d.program=program;d.generatedAt=Date.now();
+  Store.saveProfile(state.currentId,d);
   state.genProfile=p;
   state.genMetas=program.sessions.map(function(s){return {name:s.name,focus:s.focus}});
   renderProgramShell(program);
   renderHeaderActions('view-program');
   var jobs=state.genMetas.map(function(meta,i){
-    return callLLM(buildSessionPrompt(p,meta),1600).then(function(det){
+    return callLLM(buildSessionPrompt(p,meta,prevExos),1600).then(function(det){
       program.sessions[i]=normalizeSession(det,meta);
       fillSessionCard(i,program.sessions[i]);
     }).catch(function(err){
@@ -675,13 +726,13 @@ async function generate(p){
     });
   });
   await Promise.allSettled(jobs);
-  var d=Store.loadProfile(state.currentId);
-  d.program=program;d.generatedAt=Date.now();
-  Store.saveProfile(state.currentId,d);
+  d=Store.loadProfile(state.currentId);
+  d.program=program;Store.saveProfile(state.currentId,d);
+  renderProgram(program);
 }
 function showGenError(err){
   document.getElementById('programContent').innerHTML=
-    '<div class="err">Impossible de générer le programme.<br>'+esc(err.message)+'</div>'+
+    '<div class="err">Impossible de générer le bloc.<br>'+esc(err.message)+'</div>'+
     '<button class="btn btn-primary" onclick="regenerate()">Réessayer</button>'+
     '<div style="height:10px"></div>'+
     '<button class="btn btn-ghost" onclick="editProfile()">Revenir au profil</button>';
@@ -696,13 +747,18 @@ function regenerate(){
   var p=Store.loadProfile(state.currentId).profile;
   if(p)generate(p);else editProfile();
 }
+function newBlock(){
+  if(currentProgram()&&typeof window.confirm==='function'&&!window.confirm("Générer un nouveau bloc ? La progression actuelle sera remise à zéro."))return;
+  var p=Store.loadProfile(state.currentId).profile;
+  if(p)generate(p);else editProfile();
+}
 async function retrySession(i){
   var p=state.genProfile,meta=state.genMetas&&state.genMetas[i];
   if(!p||!meta){regenerate();return;}
   var bd=document.getElementById('sb-'+i);
   if(bd)bd.innerHTML='<div class="loader" style="padding:24px 10px"><div class="spinner"></div><div class="ld">Génération de la séance…</div></div>';
   try{
-    var se=normalizeSession(await callLLM(buildSessionPrompt(p,meta),1600),meta);
+    var se=normalizeSession(await callLLM(buildSessionPrompt(p,meta,extractExos(currentProgram())),1600),meta);
     fillSessionCard(i,se);
     var d=Store.loadProfile(state.currentId);
     if(d.program&&d.program.sessions){d.program.sessions[i]=se;Store.saveProfile(state.currentId,d);}
@@ -710,10 +766,25 @@ async function retrySession(i){
 }
 
 /* ======================================================================
+   SUIVI (validation séances + notes)
+   ====================================================================== */
+function toggleDone(week,i){
+  var t=getTracking();var key='w'+week+'s'+i;t.done[key]=!t.done[key];saveTracking(t);
+  var b=document.getElementById('db-'+key);
+  if(b){b.classList.toggle('on',t.done[key]);b.textContent=t.done[key]?'✓ Séance faite':'Marquer comme faite';}
+  var pw=document.getElementById('progwrap');
+  if(pw){var tmp=document.createElement('div');tmp.innerHTML=progressHTML();if(tmp.firstElementChild)pw.replaceWith(tmp.firstElementChild);}
+}
+function saveNoteEl(el){
+  var t=getTracking();t.notes[el.getAttribute('data-key')]=el.value;saveTracking(t);
+}
+function selectWeek(w){state.currentWeek=w;renderProgram(currentProgram());}
+
+/* ======================================================================
    RENDU PROGRAMME
    ====================================================================== */
 function progHeadHTML(prog){
-  var h='<div class="prog-head fade"><h2>'+esc(prog.title||'Ton programme')+'</h2>';
+  var h='<div class="prog-head fade"><h2>'+esc(prog.title||'Ton bloc')+'</h2>';
   if(prog.summary)h+='<div class="sum">'+esc(prog.summary)+'</div>';
   if(prog.weeklyStructure)h+='<div class="ws">'+esc(prog.weeklyStructure)+'</div>';
   h+='</div>';
@@ -727,12 +798,46 @@ function progHeadHTML(prog){
   }
   return h;
 }
+function progressHTML(){
+  var prog=currentProgram();if(!prog)return '';
+  var t=getTracking();var total=BLOCK_WEEKS*((prog.sessions||[]).length);
+  var done=Object.keys(t.done).filter(function(k){return t.done[k]}).length;
+  var pct=total?Math.round(done/total*100):0;
+  return '<div class="prog-track" id="progwrap"><div class="pt-top"><span>Progression du bloc</span><span>'+done+' / '+total+' séances</span></div><div class="pt-bar"><div class="pt-fill" style="width:'+pct+'%"></div></div></div>';
+}
+function weekSelectorHTML(){
+  var wk=state.currentWeek||1;var h='<div class="wk-sel">';
+  for(var w=1;w<=BLOCK_WEEKS;w++){
+    var g=WEEK_GUIDE[w];
+    h+='<button class="wk-btn'+(w===wk?' on':'')+(g&&g.deload?' deload':'')+'" onclick="selectWeek('+w+')">S'+w+'</button>';
+  }
+  return h+'</div>';
+}
+function weekBannerHTML(wk){
+  var g=WEEK_GUIDE[wk]||WEEK_GUIDE[1];
+  return '<div class="wk-banner'+(g.deload?' deload':'')+'"><div class="wkb-label">'+esc(g.label)+'</div><div class="wkb-tip">'+esc(g.tip)+'</div></div>';
+}
 function sessionHeadHTML(se){
   var h='<div class="session-hd"><div class="sn">'+esc(se.name||'Séance')+'</div>';
   if(se.focus)h+='<div class="sf">'+esc(se.focus)+'</div>';
   if(se.durationMin)h+='<div class="sd">'+esc(se.durationMin)+' min</div>';
-  h+='</div>';
-  return h;
+  return h+'</div>';
+}
+function sessionActionsHTML(week,i){
+  var t=getTracking();var key='w'+week+'s'+i;var done=!!t.done[key];var note=t.notes[key]||'';
+  return '<div class="sess-actions">'+
+    '<button class="done-btn'+(done?' on':'')+'" id="db-'+key+'" onclick="toggleDone('+week+','+i+')">'+(done?'✓ Séance faite':'Marquer comme faite')+'</button>'+
+    '<textarea class="sess-note" data-key="'+key+'" placeholder="Note (charges, ressenti…)" onblur="saveNoteEl(this)">'+esc(note)+'</textarea>'+
+    '</div>';
+}
+function applyWeekToSession(se,week){
+  var g=WEEK_GUIDE[week];
+  if(!g||!g.deload)return se;
+  var c=JSON.parse(JSON.stringify(se));
+  (c.blocks||[]).forEach(function(bl){(bl.exercises||[]).forEach(function(ex){
+    var n=parseInt(ex.sets,10);if(!isNaN(n)&&n>1)ex.sets=String(n-1);
+  })});
+  return c;
 }
 function sessionInnerHTML(se){
   var h='';
@@ -759,12 +864,16 @@ function sessionInnerHTML(se){
     if(se.finisher.detail&&se.finisher.detail!=='null')h+='<div class="exo-note">'+esc(se.finisher.detail)+'</div>';
     h+='</div>';
   }
-  return h||'<div class="card-sub">Séance vide.</div>';
+  return h||'<div class="card-sub">Séance non disponible.</div>';
 }
 function renderProgram(prog){
-  var h=progHeadHTML(prog);
-  (prog.sessions||[]).forEach(function(se){
-    h+='<div class="session">'+sessionHeadHTML(se)+'<div class="session-bd">'+sessionInnerHTML(se)+'</div></div>';
+  if(!prog){return;}
+  if(!state.currentWeek)state.currentWeek=1;
+  var wk=state.currentWeek;
+  var h=progHeadHTML(prog)+progressHTML()+weekSelectorHTML()+weekBannerHTML(wk);
+  (prog.sessions||[]).forEach(function(se,i){
+    var adj=applyWeekToSession(se,wk);
+    h+='<div class="session">'+sessionHeadHTML(adj)+'<div class="session-bd">'+sessionActionsHTML(wk,i)+sessionInnerHTML(adj)+'</div></div>';
   });
   document.getElementById('programContent').innerHTML=h;
   window.scrollTo(0,0);
