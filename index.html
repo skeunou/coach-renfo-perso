@@ -129,7 +129,7 @@ textarea{resize:vertical;min-height:64px}
 .sess-note:focus{outline:none;border-color:var(--acc)}
 .del-profile{background:none;border:none;color:var(--mut);font-size:16px;padding:4px 8px;cursor:pointer;border-radius:6px;line-height:1;flex-shrink:0}
 .del-profile:active{color:var(--red)}
-#timerBar{position:fixed;bottom:0;left:0;right:0;background:var(--surf);border-top:2px solid var(--acc);padding:12px 16px;display:flex;align-items:center;gap:10px;z-index:40}
+#timerBar{position:fixed;top:0;left:0;right:0;background:var(--surf);border-bottom:2px solid var(--acc);padding:10px 16px;display:flex;align-items:center;gap:10px;z-index:45}
 #timerDisplay{font-family:'Bebas Neue';font-size:38px;color:var(--acc);letter-spacing:2px;min-width:80px;line-height:1}
 .t-presets{display:flex;gap:5px;flex:1}
 .t-pre{flex:1;padding:8px 0;border:1px solid var(--bdr);background:var(--surf2);color:var(--mut);border-radius:7px;font-family:'Bebas Neue';font-size:16px;letter-spacing:1px;cursor:pointer}
@@ -411,7 +411,7 @@ function enterProfile(){
   else if(d.profile){fillForm(d.profile);show('view-onboarding');}
   else{resetForm();show('view-onboarding');}
 }
-function logout(){state.currentId=null;renderProfiles();show('view-login');}
+function logout(){releaseWake();hideTimerBar();state.currentId=null;renderProfiles();show('view-login');}
 
 /* ---- NOUVEAU PROFIL ---- */
 function openNewProfile(){document.getElementById('np_name').value='';document.getElementById('np_code').value='';document.getElementById('npErr').innerHTML='';openModal('modalNew');}
@@ -570,6 +570,7 @@ function progressHTML(){
 /* ---- CHECK-IN RESPIRATION + NUTRI ---- */
 function startCheckin(week,index){
   state.activeSession={week:week,index:index};state.checkin={};state.nutriAdvice=null;
+  acquireWake();
   show('view-checkin');
   var p=Store.loadProfile(state.currentId).profile;
   callLLM(buildNutriPrompt(p,week),200).then(function(r){state.nutriAdvice=(r&&(r.conseil||r.advice))||'';updateNutriCard();}).catch(function(){state.nutriAdvice='';updateNutriCard();});
@@ -592,10 +593,10 @@ function renderBreathing(week){
 }
 function renderTaps(week){
   var g=WEEK_GUIDE[week]||WEEK_GUIDE[1];
-  var h='<div class="prog-head fade"><h2>Ton état du jour</h2><div class="sum">3 réponses rapides pour adapter la séance.</div><div class="ws">'+esc(g.label)+'</div></div>';
-  h+=tapQ('energie','Énergie',[['haute','En forme',false],['moyenne','Moyenne',false],['basse','À plat',true]]);
-  h+=tapQ('tensions','Tensions physiques',[['souple','Souple',false],['moyennes','Moyennes',false],['fortes','Fortes',true]]);
-  h+=tapQ('sommeil','Sommeil de la nuit',[['bon','Bon',false],['moyen','Moyen',false],['mauvais','Mauvais',true]]);
+  var h='<div class="prog-head fade"><h2>Ton état du jour</h2><div class="sum">Réponds en un coup d\'œil, j\'adapte la séance.</div><div class="ws">'+esc(g.label)+'</div></div>';
+  h+=tapQ('energie','Ton énergie, là maintenant ?',[['haute','En forme',false],['moyenne','Moyen',false],['basse','À plat',true]]);
+  h+=tapQ('tensions','Tes muscles aujourd\'hui ?',[['souple','Souples',false],['moyennes','Normaux',false],['fortes','Raides / courbatures',true]]);
+  h+=tapQ('sommeil','Ta nuit dernière ?',[['bon','Bien dormi',false],['moyen','Correcte',false],['mauvais','Mal dormi',true]]);
   h+='<div class="nutri" id="nutriCard"><div class="nt">Conseil nutrition</div><div class="nc" id="nutriText">'+(state.nutriAdvice===null?'…':esc(state.nutriAdvice||'—'))+'</div></div>';
   h+='<button class="btn btn-primary" id="startSessBtn" onclick="finishCheckin()" disabled>Commencer la séance</button>';
   document.getElementById('checkinContent').innerHTML=h;window.scrollTo(0,0);
@@ -624,7 +625,7 @@ function renderSession(){
   var adapted=negCount()>=2;
   var se=(wk===6||adapted)?applyDeload(base):base;
   var g=WEEK_GUIDE[wk]||WEEK_GUIDE[1];
-  var h='<div class="session"><div class="session-hd"><div class="sn">'+esc(se.name||'Séance')+'</div>'+(se.focus?'<div class="sf">'+esc(se.focus)+'</div>':'')+(se.durationMin?'<div class="sd">'+esc(se.durationMin)+' min</div>':'')+'</div><div class="session-bd">';
+  var h='<div style="height:64px"></div><div class="session"><div class="session-hd"><div class="sn">'+esc(se.name||'Séance')+'</div>'+(se.focus?'<div class="sf">'+esc(se.focus)+'</div>':'')+(se.durationMin?'<div class="sd">'+esc(se.durationMin)+' min</div>':'')+'</div><div class="session-bd">';
   if(adapted)h+='<div class="wk-banner adapt"><div class="wkb-label">Séance allégée</div><div class="wkb-tip">Ton état du jour le demande : volume réduit, on privilégie la qualité et la récup.</div></div>';
   else h+='<div class="wk-banner'+(g.deload?' deload':'')+'"><div class="wkb-label">'+esc(g.label)+'</div><div class="wkb-tip">'+esc(g.tip)+'</div></div>';
   h+=sessionInnerHTML(se,true)+'</div></div>';
@@ -632,7 +633,7 @@ function renderSession(){
   h+='<div class="card"><div class="subh" style="margin-top:0">Ta note (charges, ressenti)</div><textarea class="sess-note" data-key="'+key+'" placeholder="Ex: élastique medium, 3×12 ok" onblur="saveNoteEl(this)">'+esc(note)+'</textarea></div>';
   h+='<button class="btn btn-primary" onclick="markSessionDone()">Séance terminée ✓</button><div style="height:10px"></div>';
   h+='<button class="btn btn-ghost" onclick="backToToday()">Plus tard</button>';
-  h+='<div style="height:90px"></div>';
+  h+='<div style="height:24px"></div>';
   document.getElementById('sessionContent').innerHTML=h;window.scrollTo(0,0);
   showTimerBar();
 }
@@ -653,11 +654,9 @@ function sessionInnerHTML(se,interactive){
         if(interactive){
           var n=parseInt(ex.sets,10);
           if(n>0&&n<=10){
-            var lastExo=(ei===exs.length-1);
             h+='<div class="series">';
             for(var s=1;s<=n;s++){
-              var fire=(lastExo&&s<n)?restSecs:0; // timer après chaque série de la dernière ligne du bloc, sauf la toute dernière
-              h+='<button class="serie-btn" onclick="tapSerie(this,'+fire+')">'+s+'</button>';
+              h+='<button class="serie-btn" onclick="tapSerie(this,'+restSecs+')">'+s+'</button>';
             }
             h+='</div>';
           }
@@ -706,12 +705,12 @@ function renderRecovery(){
   },secs*1000);
 }
 function finishSession(){
-  clearInterval(state._breathI);clearTimeout(state._breathT);
+  clearInterval(state._breathI);clearTimeout(state._breathT);releaseWake();
   var prog=currentProgram();
   if(blockComplete(prog)){showBilan();return;}
   backToToday();
 }
-function backToToday(){hideTimerBar();renderToday();show('view-today');}
+function backToToday(){hideTimerBar();releaseWake();renderToday();show('view-today');}
 
 /* ---- PROGRAMME COMPLET ---- */
 function openProgram(){if(!state.weekOverride)state.weekOverride=currentWeek(currentProgram());renderProgram();show('view-program');}
@@ -803,24 +802,31 @@ function beepDouble(){
     beep(880,0);beep(1100,0.4);
   }catch(e){}
 }
-function showTimerBar(){
-  setPreset(60);
-  document.getElementById('timerBar').classList.remove('hidden');
-  if(navigator.wakeLock){
-    navigator.wakeLock.request('screen').then(function(wl){timerState._wl=wl;}).catch(function(){});
-    document.addEventListener('visibilitychange',_onVis);
-  }
+function acquireWake(){
+  if(!navigator.wakeLock||timerState._wl)return;
+  navigator.wakeLock.request('screen').then(function(wl){timerState._wl=wl;}).catch(function(){});
+  document.addEventListener('visibilitychange',_onVis);
+}
+function releaseWake(){
+  if(timerState._wl){timerState._wl.release().catch(function(){});timerState._wl=null;}
+  document.removeEventListener('visibilitychange',_onVis);
 }
 function _onVis(){
   if(document.visibilityState==='visible'&&navigator.wakeLock&&!timerState._wl){
     navigator.wakeLock.request('screen').then(function(wl){timerState._wl=wl;}).catch(function(){});
   }
 }
+function showTimerBar(){
+  setPreset(60);
+  var bar=document.getElementById('timerBar');
+  var hdr=document.querySelector('.hdr');
+  if(hdr)bar.style.top=hdr.offsetHeight+'px';
+  bar.classList.remove('hidden');
+  acquireWake();
+}
 function hideTimerBar(){
   clearInterval(timerState._iv);timerState.running=false;timerState.secs=60;
   document.getElementById('timerBar').classList.add('hidden');
-  if(timerState._wl){timerState._wl.release().catch(function(){});timerState._wl=null;}
-  document.removeEventListener('visibilitychange',_onVis);
 }
 
 /* ---- LABELS & UTILS ---- */
