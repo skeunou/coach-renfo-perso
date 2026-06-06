@@ -143,6 +143,11 @@ textarea{resize:vertical;min-height:64px}
 .breath-wrap{text-align:center;padding:24px 0 8px}
 .breath-circle{width:170px;height:170px;border-radius:50%;margin:10px auto 22px;background:radial-gradient(circle,var(--acc) 0%,rgba(232,255,71,.12) 72%);animation:breathe 10s ease-in-out infinite;display:flex;align-items:center;justify-content:center}
 @keyframes breathe{0%{transform:scale(.62)}40%{transform:scale(1.12)}100%{transform:scale(.62)}}
+@keyframes boxbreathe{0%{transform:scale(.62)}25%{transform:scale(1.12)}50%{transform:scale(1.12)}75%{transform:scale(.62)}100%{transform:scale(.62)}}
+.breath-circle.box{animation:boxbreathe 16s linear infinite}
+.series{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.serie-btn{width:38px;height:38px;border-radius:8px;border:1px solid var(--bdr);background:var(--surf2);color:var(--mut);font-family:'Bebas Neue';font-size:18px;cursor:pointer;line-height:1}
+.serie-btn.done{background:var(--grn);color:#0d0d0f;border-color:var(--grn)}
 .breath-inner{font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;color:#0d0d0f}
 .breath-count{font-size:14px;color:var(--mut);margin-top:4px}
 .tap-q{margin-bottom:14px}
@@ -324,7 +329,8 @@ textarea{resize:vertical;min-height:64px}
 
 <script>
 var BLOCK_WEEKS=6;
-var BREATH_SECONDS=60;
+var BREATH_SECONDS=80;
+var RECOV_SECONDS=40;
 var WEEK_GUIDE={
   1:{label:"Semaine 1 · Adaptation",tip:"Charges confortables, priorité à la technique et à l'amplitude complète."},
   2:{label:"Semaine 2 · Volume",tip:"Ajoute 1 répétition par série par rapport à la semaine 1."},
@@ -572,15 +578,15 @@ function startCheckin(week,index){
 function renderBreathing(week){
   var secs=BREATH_SECONDS;
   document.getElementById('checkinContent').innerHTML=
-    '<div class="prog-head fade" style="text-align:center"><h2>Respire</h2><div class="sum">On prépare le système nerveux avant l\'effort. Suis le rythme du cercle.</div></div>'+
-    '<div class="breath-wrap"><div class="breath-circle"><div class="breath-inner" id="breathTxt">Inspire</div></div><div class="breath-count" id="breathCount">'+secs+'s</div></div>';
-  var start=Date.now();
+    '<div class="prog-head fade" style="text-align:center"><h2>Respiration</h2><div class="sum">Box breathing 4-4-4-4 : on met le système nerveux en alerte calme avant l\'effort. Suis le cercle.</div></div>'+
+    '<div class="breath-wrap"><div class="breath-circle box"><div class="breath-inner" id="breathTxt">Inspire</div></div><div class="breath-count" id="breathCount">'+secs+'s</div></div>';
+  var start=Date.now();var PH=['Inspire','Retiens','Expire','Poumons vides'];
   clearInterval(state._breathI);
   state._breathI=setInterval(function(){
     var el=(Date.now()-start)/1000;var rem=Math.max(0,Math.ceil(secs-el));
     var ct=document.getElementById('breathCount');if(ct)ct.textContent=rem+'s';
-    var tx=document.getElementById('breathTxt');if(tx)tx.textContent=((el%10)<4)?'Inspire':'Expire';
-  },200);
+    var tx=document.getElementById('breathTxt');if(tx)tx.textContent=PH[Math.floor((el%16)/4)%4];
+  },150);
   clearTimeout(state._breathT);
   state._breathT=setTimeout(function(){clearInterval(state._breathI);renderTaps(week);},secs*1000);
 }
@@ -621,7 +627,7 @@ function renderSession(){
   var h='<div class="session"><div class="session-hd"><div class="sn">'+esc(se.name||'Séance')+'</div>'+(se.focus?'<div class="sf">'+esc(se.focus)+'</div>':'')+(se.durationMin?'<div class="sd">'+esc(se.durationMin)+' min</div>':'')+'</div><div class="session-bd">';
   if(adapted)h+='<div class="wk-banner adapt"><div class="wkb-label">Séance allégée</div><div class="wkb-tip">Ton état du jour le demande : volume réduit, on privilégie la qualité et la récup.</div></div>';
   else h+='<div class="wk-banner'+(g.deload?' deload':'')+'"><div class="wkb-label">'+esc(g.label)+'</div><div class="wkb-tip">'+esc(g.tip)+'</div></div>';
-  h+=sessionInnerHTML(se)+'</div></div>';
+  h+=sessionInnerHTML(se,true)+'</div></div>';
   var key='w'+wk+'s'+i;var note=getTracking().notes[key]||'';
   h+='<div class="card"><div class="subh" style="margin-top:0">Ta note (charges, ressenti)</div><textarea class="sess-note" data-key="'+key+'" placeholder="Ex: élastique medium, 3×12 ok" onblur="saveNoteEl(this)">'+esc(note)+'</textarea></div>';
   h+='<button class="btn btn-primary" onclick="markSessionDone()">Séance terminée ✓</button><div style="height:10px"></div>';
@@ -630,7 +636,8 @@ function renderSession(){
   document.getElementById('sessionContent').innerHTML=h;window.scrollTo(0,0);
   showTimerBar();
 }
-function sessionInnerHTML(se){
+function parseRest(s){s=String(s||'');var m=s.match(/(\d+)\s*min/);if(m)return parseInt(m[1],10)*60;var n=parseInt(s.replace(/[^0-9]/g,''),10);return(n>0&&n<600)?n:60;}
+function sessionInnerHTML(se,interactive){
   var h='';
   if(se.warmup&&se.warmup.length)h+='<div class="subh">Échauffement</div><div class="wu">'+se.warmup.map(function(w){return '<span>'+esc(w)+'</span>'}).join('')+'</div>';
   if(se.blocks&&se.blocks.length){
@@ -639,9 +646,23 @@ function sessionInnerHTML(se){
       h+='<div class="block">';
       if(bl.type)h+='<div class="block-t">'+esc(bl.type)+'</div>';
       if(bl.rest)h+='<div class="block-r">Repos : '+esc(bl.rest)+'</div>';
-      (bl.exercises||[]).forEach(function(ex){
+      var restSecs=parseRest(bl.rest);var exs=bl.exercises||[];
+      exs.forEach(function(ex,ei){
         var sr=(ex.sets||'')+(ex.sets&&ex.reps?' × ':'')+(ex.reps||'');
-        h+='<div class="exo"><div class="exo-top"><div class="exo-n">'+esc(ex.name||'')+'</div><div class="exo-sr">'+esc(sr)+'</div></div>'+(ex.note?'<div class="exo-note">'+esc(ex.note)+'</div>':'')+'</div>';
+        h+='<div class="exo"><div class="exo-top"><div class="exo-n">'+esc(ex.name||'')+'</div><div class="exo-sr">'+esc(sr)+'</div></div>'+(ex.note?'<div class="exo-note">'+esc(ex.note)+'</div>':'');
+        if(interactive){
+          var n=parseInt(ex.sets,10);
+          if(n>0&&n<=10){
+            var lastExo=(ei===exs.length-1);
+            h+='<div class="series">';
+            for(var s=1;s<=n;s++){
+              var fire=(lastExo&&s<n)?restSecs:0; // timer après chaque série de la dernière ligne du bloc, sauf la toute dernière
+              h+='<button class="serie-btn" onclick="tapSerie(this,'+fire+')">'+s+'</button>';
+            }
+            h+='</div>';
+          }
+        }
+        h+='</div>';
       });
       h+='</div>';
     });
@@ -651,11 +672,41 @@ function sessionInnerHTML(se){
   }
   return h||'<div class="card-sub">Séance non disponible.</div>';
 }
+function tapSerie(el,timerSecs){
+  var done=el.classList.toggle('done');
+  if(done&&timerSecs>0)startAutoTimer(timerSecs);
+}
 function saveNoteEl(el){var t=getTracking();t.notes[el.getAttribute('data-key')]=el.value;saveTracking(t);}
 function markSessionDone(){
   var as=state.activeSession;if(!as)return backToToday();
   var t=getTracking();t.done['w'+as.week+'s'+as.index]=true;saveTracking(t);
   hideTimerBar();
+  renderRecovery();
+}
+function renderRecovery(){
+  var secs=RECOV_SECONDS;
+  document.getElementById('sessionContent').innerHTML=
+    '<div class="prog-head fade" style="text-align:center"><h2>Récupération</h2><div class="sum">Respiration 4-6 : on fait redescendre le système nerveux. Inspire 4s, expire 6s.</div></div>'+
+    '<div class="breath-wrap"><div class="breath-circle"><div class="breath-inner" id="rbTxt">Inspire</div></div><div class="breath-count" id="rbCount">'+secs+'s</div></div>'+
+    '<div id="rbDone"></div>'+
+    '<button class="btn btn-ghost" onclick="finishSession()">Passer</button><div style="height:40px"></div>';
+  window.scrollTo(0,0);
+  var start=Date.now();
+  clearInterval(state._breathI);
+  state._breathI=setInterval(function(){
+    var el=(Date.now()-start)/1000;var rem=Math.max(0,Math.ceil(secs-el));
+    var ct=document.getElementById('rbCount');if(ct)ct.textContent=rem+'s';
+    var tx=document.getElementById('rbTxt');if(tx)tx.textContent=((el%10)<4)?'Inspire':'Expire';
+  },150);
+  clearTimeout(state._breathT);
+  state._breathT=setTimeout(function(){
+    clearInterval(state._breathI);
+    var d=document.getElementById('rbDone');
+    if(d)d.innerHTML='<button class="btn btn-primary" onclick="finishSession()">Continuer ✓</button><div style="height:10px"></div>';
+  },secs*1000);
+}
+function finishSession(){
+  clearInterval(state._breathI);clearTimeout(state._breathT);
   var prog=currentProgram();
   if(blockComplete(prog)){showBilan();return;}
   backToToday();
@@ -721,29 +772,29 @@ function submitBilan(){var p=Store.loadProfile(state.currentId).profile;generate
 var timerState={secs:60,preset:60,running:false,_iv:null,_wl:null};
 function fmtTimer(s){var m=Math.floor(s/60);var ss=s%60;return(m<10?'0':'')+m+':'+(ss<10?'0':'')+ss;}
 function updateTimerDisplay(){var el=document.getElementById('timerDisplay');if(el)el.textContent=fmtTimer(timerState.secs);}
+function highlightPreset(s){document.querySelectorAll('.t-pre').forEach(function(b){b.classList.toggle('on',parseInt(b.getAttribute('data-p'))===s);});}
 function setPreset(s){
-  clearInterval(timerState._iv);timerState.running=false;timerState.secs=s;timerState.preset=s;
-  updateTimerDisplay();
-  var btn=document.getElementById('timerBtn');if(btn)btn.textContent='▶';
-  document.querySelectorAll('.t-pre').forEach(function(b){b.classList.toggle('on',parseInt(b.getAttribute('data-p'))===s);});
+  stopTimer();timerState.secs=s;timerState.preset=s;
+  updateTimerDisplay();highlightPreset(s);
 }
-function toggleTimer(){
-  if(timerState.running){
-    clearInterval(timerState._iv);timerState.running=false;
-    var btn=document.getElementById('timerBtn');if(btn)btn.textContent='▶';
-  }else{
-    if(timerState.secs<=0)timerState.secs=timerState.preset;
-    timerState.running=true;
-    var btn=document.getElementById('timerBtn');if(btn)btn.textContent='⏸';
-    timerState._iv=setInterval(function(){
-      timerState.secs--;updateTimerDisplay();
-      if(timerState.secs<=0){
-        clearInterval(timerState._iv);timerState.running=false;
-        var b=document.getElementById('timerBtn');if(b)b.textContent='▶';
-        beepDouble();
-      }
-    },1000);
-  }
+function stopTimer(){
+  clearInterval(timerState._iv);timerState.running=false;
+  var btn=document.getElementById('timerBtn');if(btn)btn.textContent='▶';
+}
+function startTimer(){
+  if(timerState.running)return;
+  if(timerState.secs<=0)timerState.secs=timerState.preset;
+  timerState.running=true;
+  var btn=document.getElementById('timerBtn');if(btn)btn.textContent='⏸';
+  timerState._iv=setInterval(function(){
+    timerState.secs--;updateTimerDisplay();
+    if(timerState.secs<=0){stopTimer();beepDouble();}
+  },1000);
+}
+function toggleTimer(){if(timerState.running)stopTimer();else startTimer();}
+function startAutoTimer(secs){
+  stopTimer();timerState.secs=secs;timerState.preset=secs;
+  updateTimerDisplay();highlightPreset(secs);startTimer();
 }
 function beepDouble(){
   try{
