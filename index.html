@@ -461,22 +461,85 @@ function profileSummary(p){
   if(p.eviter)l.push("Exercices à éviter: "+p.eviter+".");
   return l.join("\n");
 }
+
+/* ---- CALCUL DES PARAMETRES DE PROGRAMMATION ---- */
+function computeProgParams(p){
+  var niv=p.niveau||'debutante',obj=p.objectif||'tonification',exp=p.experience||'moins6';
+  var freq=parseInt(p.freq)||3,duree=parseInt(p.duree)||45;
+  var recov=({faible:0,modere:1,eleve:2}[p.stress]||1)+({bon:0,moyen:1,mauvais:2}[p.sommeil]||1);
+  var rl=recov<=1?'bonne':recov<=2?'moyenne':'fragile';
+  var isNov=(niv==='debutante'||exp==='moins6'),isMid=(niv==='intermediaire'||(niv==='debutante'&&exp==='6a24'));
+  var pa={};
+  if(obj==='force'){
+    if(isNov)  pa={reps:'10-12',rest:'90s',rpe:'6-7',style:'series droites, priorite technique et amplitude complete',finisher:'gainage isometrique ou mobilite (3 min max)',phase:'Bloc fondation : jamais moins de 8 reps ce premier bloc'};
+    else if(isMid) pa={reps:'8-10',rest:'90-120s',rpe:'7-8',style:'supersets agoniste/antagoniste charges progressives',finisher:'gainage ou finisher leger (5 min)',phase:'S1-3: 8-10 reps; S4-5: charge +5-10%, reps 6-8'};
+    else       pa={reps:'6-8',rest:'2-3 min',rpe:'8-9',style:'series droites sur composes lourds supersets pour accessoires',finisher:'finisher technique (pas HIIT)',phase:'S4-5: charge maximum maitrisee'};
+  } else if(obj==='tonification'){
+    if(isNov)  pa={reps:'13-15',rest:'60s',rpe:'6-7',style:'supersets full-body qualite de contraction',finisher:'cardio doux ou mobilite (5 min)',phase:'Sensibilisation musculaire avant tout'};
+    else if(isMid) pa={reps:'12-15',rest:'60s',rpe:'7-8',style:'supersets metaboliques tempo controle 2s excentrique',finisher:'circuit leger ou cardio (6-8 min)',phase:'+1-2 reps/semaine puis charge au bilan'};
+    else       pa={reps:'10-12',rest:'45-60s',rpe:'7-8',style:'supersets denses excentrique marque',finisher:'circuit metabolique (8-10 min)',phase:'Densite croissante'};
+  } else if(obj==='perte_gras'){
+    if(isNov)  pa={reps:'14-16',rest:'45-60s',rpe:'6-7',style:'circuits ou supersets simples mouvements maitrise',finisher:'cardio leger (6-8 min)',phase:'Habitude avant intensite'};
+    else if(isMid) pa={reps:'12-15',rest:'45s',rpe:'7-8',style:'supersets metaboliques enchainements fluides',finisher:'HIIT modere ou cardio (8-10 min)',phase:'Volume dabord intensite Phase B'};
+    else       pa={reps:'12-15',rest:'30-45s',rpe:'8',style:'circuits denses temps mort minimal',finisher:'HIIT (10-12 min)',phase:'Densite maximale'};
+  } else if(obj==='sante_mobilite'){
+    pa={reps:'12-15',rest:'75-90s',rpe:'5-7',style:'series confortables amplitude complete tempo lent',finisher:'mobilite ou etirements actifs (8 min)',phase:'Confort guide tout'};
+  } else {
+    pa={reps:'10-15',rest:'60-90s',rpe:'7-8',style:'exercices fonctionnels lies a evenement',finisher:'specifique evenement',phase:'Base puis specificite'};
+  }
+  var advExt=[],sfExt=[];
+  if(rl==='fragile'){
+    pa.rpe='plafonne a RPE 7';pa.finisher='gainage doux ou mobilite uniquement (pas de HIIT)';
+    advExt.push('Recup fragile : reduire le volume de 20% si fatigue marquee en debut de seance. Une seance bien recuperee vaut plus quune seance epuisante.');
+    advExt.push('Cortisol chronique : glucides complexes le soir (riz, patate douce), couper cafe apres 14h, viser 7-8h de sommeil.');
+    sfExt.push('Ne pas enchainer 2 seances intenses sans bonne nuit entre les deux.');
+  } else if(rl==='moyenne'){
+    pa.rpe=(pa.rpe||'7-8')+' (ne pas depasser RPE 8)';
+    advExt.push('Recup moyenne : si fatigue marquee, reduire les charges de 20% sans culpabiliser.');
+    advExt.push('Magnesium (amandes, chocolat noir) et sommeil regulier sont tes meilleurs allies de progression.');
+  }
+  if(obj==='perte_gras'&&rl!=='bonne'){
+    pa.finisher='finisher modere (cardio doux, pas HIIT agressif)';
+    advExt.push('Perte de gras + recup fragile : regularite > intensite brute, le cortisol freine la composition corporelle.');
+  }
+  if(freq<=2&&duree<=30)       pa.archi='2 blocs composes max, sans finisher, 6-8 exercices';
+  else if(duree<=30)            pa.archi='2 blocs, finisher tres court optionnel (3 min)';
+  else if(freq>=4&&duree>=60)  pa.archi='3-4 blocs, finisher selon recuperation';
+  else                          pa.archi='3 blocs + finisher';
+  pa.advExt=advExt;pa.sfExt=sfExt;pa.rl=rl;
+  return pa;
+}
 function buildPlanPrompt(p,bilan){
   var cal=bilan?("Bilan du bloc précédent: niveau jugé '"+bilan.niveau+"', souhait: '"+bilan.suite+"'. Ajuste en conséquence (monte l'intensité si trop facile, change le découpage si la personne veut varier).\n"):"";
   return "Tu es un coach expert en renforcement musculaire, prudent et bienveillant. Réponds TOUJOURS EN FRANÇAIS. Conçois le CADRE d'un bloc de "+BLOCK_WEEKS+" semaines, personnalisé et SÛR.\n\n"+
   profileSummary(p)+"\n\n"+cal+
-  "Donne exactement "+p.freq+" séances (la trame de la semaine). RÈGLE IMPÉRATIVE : CHAQUE séance est un FULL-BODY (haut du corps + bas du corps + gainage/abdos systématiquement). Ne fais JAMAIS une séance focalisée sur une seule zone (jamais de journée jambes seule). Différencie les séances par un ACCENT et non par un découpage : ex. accent bas du corps, accent haut du corps, accent gainage/core — mais TOUTES restent full-body et incluent des abdos. Seule la répartition varie, jamais la couverture full-body.\n"+
+  (function(){var par=computeProgParams(p);
+  return "PARAMETRES PROGRAMMATION A RESPECTER STRICTEMENT:\n"
+  +"- Reps: "+par.reps+"\n- Repos: "+par.rest+"\n- RPE: "+par.rpe+"\n"
+  +"- Style: "+par.style+"\n- Architecture: "+par.archi+"\n- Finisher: "+par.finisher+"\n"
+  +(par.phase?"- Phase: "+par.phase+"\n":"")
+  +(par.advExt.length?"- Conseils obligatoires dans advice[]: "+par.advExt.join(" | ")+"\n":"")
+  +(par.sfExt.length?"- Notes dans safetyNotes[]: "+par.sfExt.join(" | ")+"\n":"")+"\n";
+  })()+
+
+  "Donne exactement "+p.freq+" séances (la trame de la semaine). RÈGLE IMPÉRATIVE : CHAQUE séance est un FULL-BODY (haut du corps + bas du corps + gainage/abdos systématiquement). Ne fais JAMAIS une séance focalisée sur une seule zone (jamais de journée jambes seule). Différencie les séances par un ACCENT et non par un découpage : accents librement choisis et varies (haut, bas, gainage/core, force-endurance...) — TOUTES restent full-body avec abdos. Varie l'ordre des accents, ne commence pas toujours par le meme.\n"+
   "Sois TRÈS concis : max 8 mots par conseil/note, max 5 mots par name/focus de séance.\n"+
   "RÉPONDS EN JSON STRICT, SANS MARKDOWN :\n"+
   '{"title":"nom motivant","summary":"1-2 phrases sur l\'approche","weeklyStructure":"ex: 3 séances full-body, bloc de '+BLOCK_WEEKS+' semaines","advice":["conseil progression","conseil récup"],"safetyNotes":["adaptation contraintes santé"],"sessions":[{"name":"Séance A — ...","focus":"objectif en quelques mots"}]}';
 }
 function buildSessionPrompt(p,meta,prevExos){
-  var anti=(prevExos&&prevExos.length)?("Pour varier, n'utilise PAS ces exercices: "+prevExos.slice(0,18).join(', ')+".\n"):"";
-  return "Tu es un coach expert en renforcement musculaire, prudent. Réponds TOUJOURS EN FRANÇAIS. Détaille UNE séance.\n\n"+profileSummary(p)+"\n\n"+anti+
-  "SÉANCE : "+meta.name+" — "+(meta.focus||"")+"\nDurée cible: "+p.duree+" min échauffement inclus. Utilise UNIQUEMENT le matériel listé.\n"+
-  "Supersets quand pertinent: 'superset agoniste/antagoniste' (repos 60s), 'superset complémentaire' (45s), 'non-compétitif' (45s). Finisher optionnel (30s).\n"+
-  "Séries × reps selon l'objectif (force 4-6 ; tonification/perte 10-15 ; santé 12-15). Note brève par exercice (cue ou régression).\n"+
-  "RÉPONDS EN JSON STRICT, SANS MARKDOWN :\n"+
+  var par=computeProgParams(p);
+  var phaseB=(prevExos&&prevExos.length);
+  var anti=phaseB?("Phase B (S4-5, intensite superieure: reps bas fourchette, charges +5-10%). Exos a eviter (deja en Phase A): "+prevExos.slice(0,18).join(', ')+".\n"):"";
+  var parStr="CONTRAINTES DE PROGRAMMATION (respecter strictement):\n"
+    +"- Reps: "+par.reps+" | Repos inter-series: "+par.rest+" | RPE vise: "+par.rpe+"\n"
+    +"- Style: "+par.style+"\n"
+    +"- Finisher: "+par.finisher+"\n"
+    +(par.phase?"- Logique de phase: "+par.phase+"\n":"")+"\n";
+  return "Tu es un coach expert en renforcement musculaire, prudent. Reponds TOUJOURS EN FRANCAIS. Detaille UNE seance.\n\n"+profileSummary(p)+"\n\n"+anti+parStr+
+  "SEANCE : "+meta.name+" — "+(meta.focus||"")+"\nDuree cible: "+p.duree+" min echauffement inclus. Utilise UNIQUEMENT le materiel liste.\n"+
+  "Structure: supersets selon style ci-dessus. Note breve par exercice (cue ou regression). Respecte le finisher specifie.\n"+
+  "REPONDS EN JSON STRICT, SANS MARKDOWN :\n"+
   '{"name":"...","focus":"...","durationMin":'+p.duree+',"warmup":["..."],"blocks":[{"type":"superset agoniste/antagoniste","rest":"60s","exercises":[{"name":"...","sets":"3","reps":"10-12","note":"..."}]}],"finisher":{"name":"nom ou null","detail":"description ou null"}}';
 }
 function buildNutriPrompt(p,week){
