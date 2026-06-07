@@ -465,7 +465,7 @@ function buildPlanPrompt(p,bilan){
   var cal=bilan?("Bilan du bloc précédent: niveau jugé '"+bilan.niveau+"', souhait: '"+bilan.suite+"'. Ajuste en conséquence (monte l'intensité si trop facile, change le découpage si la personne veut varier).\n"):"";
   return "Tu es un coach expert en renforcement musculaire, prudent et bienveillant. Réponds TOUJOURS EN FRANÇAIS. Conçois le CADRE d'un bloc de "+BLOCK_WEEKS+" semaines, personnalisé et SÛR.\n\n"+
   profileSummary(p)+"\n\n"+cal+
-  "Donne exactement "+p.freq+" séances (la trame de la semaine). Full-body si peu de temps/fréquence, sinon split cohérent.\n"+
+  "Donne exactement "+p.freq+" séances (la trame de la semaine). RÈGLE IMPÉRATIVE : CHAQUE séance est un FULL-BODY (haut du corps + bas du corps + gainage/abdos systématiquement). Ne fais JAMAIS une séance focalisée sur une seule zone (jamais de journée jambes seule). Différencie les séances par un ACCENT et non par un découpage : ex. accent bas du corps, accent haut du corps, accent gainage/core — mais TOUTES restent full-body et incluent des abdos. Seule la répartition varie, jamais la couverture full-body.\n"+
   "Sois TRÈS concis : max 8 mots par conseil/note, max 5 mots par name/focus de séance.\n"+
   "RÉPONDS EN JSON STRICT, SANS MARKDOWN :\n"+
   '{"title":"nom motivant","summary":"1-2 phrases sur l\'approche","weeklyStructure":"ex: 3 séances full-body, bloc de '+BLOCK_WEEKS+' semaines","advice":["conseil progression","conseil récup"],"safetyNotes":["adaptation contraintes santé"],"sessions":[{"name":"Séance A — ...","focus":"objectif en quelques mots"}]}';
@@ -568,12 +568,167 @@ function progressHTML(){
 }
 
 /* ---- CHECK-IN RESPIRATION + NUTRI ---- */
+var CONSEILS=[
+{c:"Hydratation",t:"Répartis ton eau sur toute la matinée plutôt qu'en une fois ; vise une hydratation régulière."},
+{c:"Hydratation",t:"Arrête de boire ~15 min avant le repas pour ne pas diluer les sucs gastriques."},
+{c:"Hydratation",t:"Bois un grand verre d'eau au réveil pour réamorcer l'organisme après la nuit."},
+{c:"Hydratation",t:"Hydrate-toi entre les repas, pas pendant, pour préserver une bonne digestion."},
+{c:"Hydratation",t:"Surveille la couleur de tes urines : claires = bien hydratée, foncées = bois davantage."},
+{c:"Hydratation",t:"Ajoute une pincée de sel non raffiné à ton eau après une grosse séance pour recharger les électrolytes."},
+{c:"Hydratation",t:"Bois à température ambiante plutôt que glacée pour ne pas ralentir la digestion."},
+{c:"Hydratation",t:"Une tisane après le repas aide la digestion sans diluer fortement l'estomac."},
+{c:"Hydratation",t:"Si l'effort dépasse 1h, bois par petites gorgées régulières plutôt qu'un gros volume d'un coup."},
+{c:"Hydratation",t:"Commence à t'hydrater la veille d'une séance intense, pas seulement le jour même."},
+{c:"Hydratation",t:"Si tu transpires beaucoup, pense aux électrolytes (sodium, potassium, magnésium), pas juste à l'eau."},
+{c:"Hydratation",t:"Limite les boissons sucrées : elles perturbent la glycémie et hydratent mal."},
+{c:"Hydratation",t:"Bois un verre d'eau avant ton café du matin pour compenser son effet diurétique."},
+{c:"Hydratation",t:"Par temps chaud, augmente ton hydratation sans attendre la sensation de soif."},
+{c:"Timing des repas",t:"Garde des horaires de repas réguliers : ton horloge biologique régule mieux faim et énergie."},
+{c:"Timing des repas",t:"Ne saute pas le petit-déjeuner si tu t'entraînes le matin ; même léger, il amorce l'énergie."},
+{c:"Timing des repas",t:"Laisse ~3h entre ton dernier repas et une séance intense pour une digestion confortable."},
+{c:"Timing des repas",t:"Place ta source de glucides principale autour de tes entraînements, là où le corps en a besoin."},
+{c:"Timing des repas",t:"Le soir, allège les portions et privilégie ce qui favorise le sommeil plutôt qu'un repas lourd."},
+{c:"Timing des repas",t:"Évite de t'entraîner totalement à jeun si l'intensité est élevée : une petite collation suffit."},
+{c:"Timing des repas",t:"Espace tes repas de 3-4h pour laisser la digestion se faire et stabiliser ta glycémie."},
+{c:"Timing des repas",t:"Si tu manges tard, réduis les graisses et garde le repas digeste."},
+{c:"Timing des repas",t:"Une collation protéinée en milieu d'après-midi évite le craquage sucré de 17h."},
+{c:"Timing des repas",t:"Cale ton repas le plus copieux quand ton activité est la plus forte dans la journée."},
+{c:"Timing des repas",t:"Évite de grignoter en continu : laisse ton système digestif se reposer entre les prises."},
+{c:"Timing des repas",t:"Le matin d'une sortie longue, mange 2-3h avant pour avoir le temps de digérer."},
+{c:"Timing des repas",t:"Termine de manger ~2-3h avant le coucher pour ne pas perturber ton sommeil."},
+{c:"Glucides",t:"Choisis des glucides complets (avoine, riz complet, patate douce) pour une énergie stable."},
+{c:"Glucides",t:"Place les glucides rapides autour de l'effort, quand le muscle les capte le mieux."},
+{c:"Glucides",t:"Recharge en glucides dans les 1-2h après une grosse séance pour reconstituer le glycogène."},
+{c:"Glucides",t:"Associe toujours tes glucides à des fibres ou des protéines pour lisser la glycémie."},
+{c:"Glucides",t:"Évite les sucres rapides seuls le matin : ils provoquent un pic puis un coup de pompe."},
+{c:"Glucides",t:"Avant une sortie longue, augmente un peu tes glucides la veille au soir."},
+{c:"Glucides",t:"Préfère les fruits entiers aux jus : fibres conservées, glycémie plus douce."},
+{c:"Glucides",t:"Un peu de glucides au dîner peut favoriser l'endormissement via la sérotonine."},
+{c:"Glucides",t:"Adapte ta quantité de glucides à ton volume d'entraînement de la journée."},
+{c:"Glucides",t:"Privilégie patate douce et légumineuses : index glycémique modéré et micronutriments."},
+{c:"Glucides",t:"Après l'effort, glucides + protéines ensemble accélèrent la récupération."},
+{c:"Glucides",t:"N'élimine pas les glucides : ton cerveau et tes muscles en ont besoin pour performer."},
+{c:"Protéines",t:"Répartis tes protéines sur la journée plutôt qu'un seul gros apport au dîner."},
+{c:"Protéines",t:"Vise une source de protéines à chaque repas pour entretenir la masse musculaire."},
+{c:"Protéines",t:"Après une séance de renfo, prends des protéines dans les 1-2h qui suivent."},
+{c:"Protéines",t:"Varie tes sources : œufs, poisson, volaille, légumineuses, tofu apportent des acides aminés complémentaires."},
+{c:"Protéines",t:"Un œuf au petit-déjeuner cale la faim et stabilise l'énergie de la matinée."},
+{c:"Protéines",t:"Le poisson gras (sardine, maquereau) cumule protéines et oméga-3 anti-inflammatoires."},
+{c:"Protéines",t:"Légumineuses + céréales forment une protéine complète, idéal sans viande."},
+{c:"Protéines",t:"Une collation protéinée le soir (skyr, fromage blanc) soutient la récupération nocturne."},
+{c:"Protéines",t:"Ne néglige pas les protéines en période de perte de poids : elles préservent le muscle."},
+{c:"Protéines",t:"Le bouillon d'os (collagène) soutient tendons et articulations sollicités en trail."},
+{c:"Protéines",t:"Privilégie des cuissons douces (vapeur, mijoté) plutôt que très grillées pour tes protéines."},
+{c:"Protéines",t:"Le fromage blanc/skyr du soir libère ses protéines lentement pendant la nuit."},
+{c:"Récupération",t:"Mise sur les oméga-3 (poisson gras, noix, lin) pour calmer l'inflammation post-effort."},
+{c:"Récupération",t:"Les fruits rouges (myrtilles, cassis) sont riches en antioxydants : parfaits après une grosse séance."},
+{c:"Récupération",t:"Curcuma + poivre noir soutient la gestion de l'inflammation ; ajoute-le à tes plats."},
+{c:"Récupération",t:"Le gingembre aide à réduire les courbatures ; râpe-le frais dans tes plats ou tisanes."},
+{c:"Récupération",t:"Colore ton assiette : plus il y a de couleurs de légumes, plus tu couvres d'antioxydants."},
+{c:"Récupération",t:"Après une séance intense, privilégie un repas anti-inflammatoire (légumes, poisson, huile d'olive)."},
+{c:"Récupération",t:"La betterave (nitrates) soutient l'oxygénation musculaire ; utile avant un effort d'endurance."},
+{c:"Récupération",t:"Le thé vert apporte des polyphénols qui soutiennent la récupération."},
+{c:"Récupération",t:"Limite les aliments ultra-transformés : ils entretiennent l'inflammation de bas grade."},
+{c:"Récupération",t:"L'huile d'olive extra-vierge crue est un anti-inflammatoire du quotidien."},
+{c:"Récupération",t:"Une poignée de noix par jour soutient la récupération (oméga-3, magnésium)."},
+{c:"Récupération",t:"Le cacao pur (>70%) apporte des flavonoïdes utiles à la récupération vasculaire."},
+{c:"Récupération",t:"Après une compétition, soigne tes 3 premiers repas : ils lancent la récupération."},
+{c:"Sommeil",t:"Le magnésium (amandes, légumes verts, chocolat noir) favorise un sommeil profond."},
+{c:"Sommeil",t:"Le soir, mise sur des aliments riches en tryptophane (dinde, œufs, banane) pour la mélatonine."},
+{c:"Sommeil",t:"Coupe la caféine après 14-15h pour ne pas dégrader ton sommeil."},
+{c:"Sommeil",t:"Évite un repas trop lourd ou trop gras le soir : il fragmente le sommeil."},
+{c:"Sommeil",t:"Une tisane (camomille, tilleul, valériane) le soir prépare l'endormissement."},
+{c:"Sommeil",t:"Un peu de glucides au dîner facilite l'entrée du tryptophane dans le cerveau."},
+{c:"Sommeil",t:"Limite l'alcool le soir : il endort vite mais dégrade le sommeil profond."},
+{c:"Sommeil",t:"La banane du soir apporte magnésium et tryptophane, alliés du sommeil."},
+{c:"Sommeil",t:"Expose-toi à la lumière du matin : ça cale ton horloge et améliore le sommeil du soir."},
+{c:"Sommeil",t:"Le kiwi le soir est étudié pour favoriser l'endormissement."},
+{c:"Sommeil",t:"Un dîner trop tardif décale ta digestion et ton endormissement."},
+{c:"Sommeil",t:"Chambre fraîche + dernier repas digeste = sommeil plus réparateur."},
+{c:"Stress & cortisol",t:"Un excès de café à jeun fait grimper le cortisol ; accompagne-le d'un petit-déjeuner."},
+{c:"Stress & cortisol",t:"Les oméga-3 aident à réguler la réponse au stress (axe HPA)."},
+{c:"Stress & cortisol",t:"Stabilise ta glycémie (repas complets) pour éviter les montées de cortisol liées aux hypoglycémies."},
+{c:"Stress & cortisol",t:"Le magnésium est consommé par le stress : recharge via légumes verts et oléagineux."},
+{c:"Stress & cortisol",t:"Évite de sauter des repas en période de stress : ça amplifie la sécrétion de cortisol."},
+{c:"Stress & cortisol",t:"Une respiration lente avant le repas active le parasympathique et améliore la digestion."},
+{c:"Stress & cortisol",t:"Le thé vert (L-théanine) favorise un calme sans somnolence."},
+{c:"Stress & cortisol",t:"Limite les excitants en période de stress chronique : ils entretiennent l'état d'alerte."},
+{c:"Stress & cortisol",t:"Des repas réguliers rassurent ton système nerveux et lissent l'énergie."},
+{c:"Stress & cortisol",t:"Un peu de chocolat noir (>70%) peut apaiser via magnésium et polyphénols."},
+{c:"Stress & cortisol",t:"En période chargée, priorise la densité nutritionnelle plutôt que la quantité."},
+{c:"Stress & cortisol",t:"Mange dans le calme, assise et sans écran : digestion et satiété s'améliorent."},
+{c:"Digestion",t:"Mâche lentement : la digestion commence dans la bouche et améliore l'assimilation."},
+{c:"Digestion",t:"Coupe les boissons ~15 min avant le repas pour préserver les sucs gastriques."},
+{c:"Digestion",t:"Intègre des aliments fermentés (yaourt, kéfir, choucroute) pour ton microbiote."},
+{c:"Digestion",t:"Augmente tes fibres (légumes, légumineuses) progressivement pour nourrir ton microbiote."},
+{c:"Digestion",t:"Évite les repas trop gras avant l'effort : ils ralentissent la vidange gastrique."},
+{c:"Digestion",t:"Un repas mangé trop vite ou stressé digère mal : pose-toi 10 minutes."},
+{c:"Digestion",t:"Le gingembre aide en cas de digestion lente ou de nausées à l'effort."},
+{c:"Digestion",t:"Teste tes aliments d'effort à l'entraînement, jamais le jour de la course."},
+{c:"Digestion",t:"Avant une séance, choisis du digeste : évite crudités en grande quantité et légumineuses."},
+{c:"Digestion",t:"Varie tes fibres (solubles et insolubles) pour un transit équilibré."},
+{c:"Digestion",t:"Une marche douce après le repas facilite la digestion."},
+{c:"Digestion",t:"Introduis les nouveaux aliments progressivement pour habituer ton intestin."},
+{c:"Micronutriments",t:"2-3 noix du Brésil par jour couvrent tes besoins en sélénium (thyroïde, antioxydant)."},
+{c:"Micronutriments",t:"Vitamine D : difficile à couvrir l'hiver, surveille ton statut et expose-toi au soleil."},
+{c:"Micronutriments",t:"Le fer végétal s'absorbe mieux avec de la vitamine C (un filet de citron sur les lentilles)."},
+{c:"Micronutriments",t:"Évite thé/café juste après un repas riche en fer : ils freinent son absorption."},
+{c:"Micronutriments",t:"Les légumes verts foncés (épinards, brocoli) cumulent fer, magnésium et folates."},
+{c:"Micronutriments",t:"Le zinc (huîtres, graines de courge) soutient l'immunité et la récupération."},
+{c:"Micronutriments",t:"L'iode (poisson, algues) est clé pour la thyroïde ; varie tes sources marines."},
+{c:"Micronutriments",t:"Le potassium (banane, patate douce, légumes) équilibre le sodium et la tension."},
+{c:"Micronutriments",t:"Graines de courge et de tournesol enrichissent tes salades en minéraux."},
+{c:"Micronutriments",t:"Le calcium ne vient pas que du lait : amandes, sardines et légumes verts en apportent."},
+{c:"Micronutriments",t:"Mange « arc-en-ciel » sur la semaine pour couvrir un large spectre de micronutriments."},
+{c:"Micronutriments",t:"Une carence en fer fatigue et essouffle : surveille-la si tu es souvent épuisée."},
+{c:"Neurotransmetteurs",t:"La tyrosine (œufs, fromage, amandes) est précurseur de la dopamine : utile le matin pour la motivation."},
+{c:"Neurotransmetteurs",t:"Le tryptophane (dinde, banane, cacao) nourrit la sérotonine, l'humeur et le sommeil."},
+{c:"Neurotransmetteurs",t:"Un petit-déjeuner protéiné soutient la dopamine et la concentration matinale."},
+{c:"Neurotransmetteurs",t:"Le cacao pur stimule légèrement la dopamine ; un carré suffit."},
+{c:"Neurotransmetteurs",t:"Les oméga-3 sont structurels pour le cerveau : poisson gras 2-3x/semaine."},
+{c:"Neurotransmetteurs",t:"La choline (jaune d'œuf) soutient la mémoire et la concentration."},
+{c:"Neurotransmetteurs",t:"Les glucides du soir aident la sérotonine à monter pour l'endormissement."},
+{c:"Neurotransmetteurs",t:"Une glycémie stable = humeur et énergie plus stables sur la journée."},
+{c:"Neurotransmetteurs",t:"Les polyphénols (baies, thé vert, cacao) protègent les neurones."},
+{c:"Neurotransmetteurs",t:"La vitamine B6 (banane, pois chiches) participe à la fabrication des neurotransmetteurs."},
+{c:"Neurotransmetteurs",t:"Le magnésium soutient l'équilibre nerveux et la gestion du stress."},
+{c:"Neurotransmetteurs",t:"Évite les pics de sucre isolés : ils déstabilisent humeur et concentration."},
+{c:"Caféine",t:"Repousse ton premier café 60-90 min après le réveil pour respecter ton pic de cortisol naturel."},
+{c:"Caféine",t:"Coupe la caféine après 14-15h pour protéger ton sommeil."},
+{c:"Caféine",t:"Un café 30-45 min avant la séance peut booster la performance."},
+{c:"Caféine",t:"Accompagne ton café d'un petit-déjeuner pour éviter le pic de cortisol à jeun."},
+{c:"Caféine",t:"La L-théanine du thé vert lisse l'effet de la caféine : énergie sans nervosité."},
+{c:"Caféine",t:"Au-delà de 3-4 cafés/jour, tu entretiens souvent une fatigue de fond."},
+{c:"Caféine",t:"Hydrate-toi en plus quand tu bois du café : effet diurétique léger."},
+{c:"Caféine",t:"Évite la caféine si tu te sens déjà stressée : elle amplifie l'état d'alerte."},
+{c:"Caféine",t:"Teste ta tolérance à la caféine à l'entraînement, jamais le jour J directement."},
+{c:"Caféine",t:"Le café ne remplace pas le sommeil : il masque la fatigue sans la réparer."},
+{c:"Équilibre & satiété",t:"Remplis la moitié de ton assiette de légumes : satiété et micronutriments garantis."},
+{c:"Équilibre & satiété",t:"Mange jusqu'à être rassasiée, pas pleine : la satiété arrive avec ~15 min de décalage."},
+{c:"Équilibre & satiété",t:"Protéines + fibres à chaque repas = faim mieux contrôlée l'après-midi."},
+{c:"Équilibre & satiété",t:"Garde des collations saines à portée (fruits, oléagineux) pour éviter le distributeur."},
+{c:"Équilibre & satiété",t:"Ne mange pas devant un écran : on mange plus sans s'en rendre compte."},
+{c:"Équilibre & satiété",t:"Un carré de chocolat noir savouré vaut mieux qu'une tablette avalée distraitement."},
+{c:"Équilibre & satiété",t:"Prépare tes repas à l'avance : tu choisis mieux que sous le coup de la faim."},
+{c:"Équilibre & satiété",t:"En affûtage, garde les glucides et réduis surtout le volume d'entraînement."},
+{c:"Équilibre & satiété",t:"La motivation se nourrit : un petit-déjeuner protéiné facilite le passage à l'action."},
+{c:"Équilibre & satiété",t:"Un repas pris assise et au calme vaut mieux qu'un repas avalé debout."},
+];
+function pickConseil(){
+  if(!CONSEILS.length)return null;
+  var d=Store.loadProfile(state.currentId);var recent=d.nutriSeen||[];
+  var pool=[];for(var i=0;i<CONSEILS.length;i++)if(recent.indexOf(i)===-1)pool.push(i);
+  if(!pool.length){recent=[];for(var j=0;j<CONSEILS.length;j++)pool.push(j);}
+  var idx=pool[Math.floor(Math.random()*pool.length)];
+  recent.push(idx);if(recent.length>30)recent=recent.slice(recent.length-30);
+  d.nutriSeen=recent;Store.saveProfile(state.currentId,d);
+  return CONSEILS[idx];
+}
 function startCheckin(week,index){
   state.activeSession={week:week,index:index};state.checkin={};state.nutriAdvice=null;
   acquireWake();
   show('view-checkin');
-  var p=Store.loadProfile(state.currentId).profile;
-  callLLM(buildNutriPrompt(p,week),200).then(function(r){state.nutriAdvice=(r&&(r.conseil||r.advice))||'';updateNutriCard();}).catch(function(){state.nutriAdvice='';updateNutriCard();});
+  var conseil=pickConseil();state.nutriAdvice=conseil?conseil.t:'';
   renderBreathing(week);
 }
 function renderBreathing(week){
